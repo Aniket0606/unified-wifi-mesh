@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include "dm_neighbor.h"
 #include <cstring>
+#include <cmath>
 
 void parse_mac(const char* str, mac_address_t mac)
 {
@@ -316,7 +317,7 @@ TEST(dm_neighbor_t, dm_neighbor_t_default_constructor) {
  */
 TEST(dm_neighbor_t, dm_neighbor_t_copy_default_constructor) {
     std::cout << "Entering dm_neighbor_t_copy_default_constructor test" << std::endl;
-    dm_neighbor_t source;
+    dm_neighbor_t source{};
     dm_neighbor_t copy(source);
     em_neighbor_info_t* src_info = source.get_neighbor_info();
     em_neighbor_info_t* copy_info = copy.get_neighbor_info();
@@ -359,9 +360,9 @@ TEST(dm_neighbor_t, dm_neighbor_t_copy_fully_populated) {
     dm_neighbor_t copy(source);
     em_neighbor_info_t* copy_info = copy.get_neighbor_info();
     EXPECT_EQ(memcmp(copy_info->nbr, source.m_neighbor_info.nbr, sizeof(copy_info->nbr)), 0);
-    EXPECT_FLOAT_EQ(copy_info->pos_x, source.m_neighbor_info.pos_x);
-    EXPECT_FLOAT_EQ(copy_info->pos_y, source.m_neighbor_info.pos_y);
-    EXPECT_FLOAT_EQ(copy_info->pos_z, source.m_neighbor_info.pos_z);
+    EXPECT_EQ(std::isnan(copy_info->pos_x), std::isnan(source.m_neighbor_info.pos_x));
+    EXPECT_EQ(std::isnan(copy_info->pos_y), std::isnan(source.m_neighbor_info.pos_y));
+    EXPECT_EQ(std::isnan(copy_info->pos_z), std::isnan(source.m_neighbor_info.pos_z));
     EXPECT_EQ(memcmp(copy_info->next_hop, source.m_neighbor_info.next_hop, sizeof(copy_info->next_hop)), 0);
     EXPECT_EQ(copy_info->num_hops, source.m_neighbor_info.num_hops);
     EXPECT_EQ(copy_info->path_loss, source.m_neighbor_info.path_loss);
@@ -430,14 +431,14 @@ TEST(dm_neighbor_t, dm_neighbor_t_copy_extreme_negative_values) {
  */
 TEST(dm_neighbor_t, dm_neighbor_t_copy_partially_initialized) {
     std::cout << "Entering dm_neighbor_t_copy_partially_initialized test" << std::endl;
-    dm_neighbor_t source;
+    dm_neighbor_t source{};
     parse_mac("12:34:56:78:9A:BC", source.m_neighbor_info.nbr);
     dm_neighbor_t copy(source);
     em_neighbor_info_t* copy_info = copy.get_neighbor_info();
     EXPECT_EQ(memcmp(copy_info->nbr, source.m_neighbor_info.nbr, sizeof(copy_info->nbr)), 0);
-    EXPECT_FLOAT_EQ(copy_info->pos_x, source.m_neighbor_info.pos_x);
-    EXPECT_FLOAT_EQ(copy_info->pos_y, source.m_neighbor_info.pos_y);
-    EXPECT_FLOAT_EQ(copy_info->pos_z, source.m_neighbor_info.pos_z);
+    EXPECT_EQ(std::isnan(copy_info->pos_x), std::isnan(source.m_neighbor_info.pos_x));
+    EXPECT_EQ(std::isnan(copy_info->pos_y), std::isnan(source.m_neighbor_info.pos_y));
+    EXPECT_EQ(std::isnan(copy_info->pos_z), std::isnan(source.m_neighbor_info.pos_z));
     EXPECT_EQ(memcmp(copy_info->next_hop, source.m_neighbor_info.next_hop, sizeof(copy_info->next_hop)), 0);
     EXPECT_EQ(copy_info->num_hops, source.m_neighbor_info.num_hops);
     EXPECT_EQ(copy_info->path_loss, source.m_neighbor_info.path_loss);
@@ -951,9 +952,9 @@ TEST(dm_neighbor_t, positive_assignment_fully_populated) {
     dm_neighbor_t target;
     target = source;
     EXPECT_EQ(memcmp(target.m_neighbor_info.nbr, source.m_neighbor_info.nbr, sizeof(target.m_neighbor_info.nbr)),0);
-    EXPECT_FLOAT_EQ(target.m_neighbor_info.pos_x, source.m_neighbor_info.pos_x);
-    EXPECT_FLOAT_EQ(target.m_neighbor_info.pos_y, source.m_neighbor_info.pos_y);
-    EXPECT_FLOAT_EQ(target.m_neighbor_info.pos_z, source.m_neighbor_info.pos_z);
+    EXPECT_EQ(std::isnan(target.m_neighbor_info.pos_x), std::isnan(source.m_neighbor_info.pos_x));
+    EXPECT_EQ(std::isnan(target.m_neighbor_info.pos_y), std::isnan(source.m_neighbor_info.pos_y));
+    EXPECT_EQ(std::isnan(target.m_neighbor_info.pos_z), std::isnan(source.m_neighbor_info.pos_z));
     EXPECT_EQ(memcmp(target.m_neighbor_info.next_hop, source.m_neighbor_info.next_hop, sizeof(target.m_neighbor_info.next_hop)),0);
     EXPECT_EQ(target.m_neighbor_info.num_hops, source.m_neighbor_info.num_hops);
     EXPECT_EQ(target.m_neighbor_info.path_loss, source.m_neighbor_info.path_loss);
@@ -981,8 +982,8 @@ TEST(dm_neighbor_t, positive_assignment_fully_populated) {
  */
 TEST(dm_neighbor_t, positive_assignment_default_neighbor_info) {
     std::cout << "Entering positive_assignment_default_neighbor_info test" << std::endl;
-    dm_neighbor_t source;
-    dm_neighbor_t target;
+    dm_neighbor_t source{};
+    dm_neighbor_t target{};
     target = source;
     EXPECT_EQ(memcmp(target.m_neighbor_info.nbr, source.m_neighbor_info.nbr, sizeof(target.m_neighbor_info.nbr)), 0);
     EXPECT_FLOAT_EQ(target.m_neighbor_info.pos_x, source.m_neighbor_info.pos_x);

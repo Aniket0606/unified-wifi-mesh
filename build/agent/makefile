@@ -29,10 +29,14 @@ INCLUDEDIRS = \
 	-I$(ONEWIFI_EM_HOME)/src/utils \
 	-I$(ONEWIFI_HAL_INTF_HOME) \
 	-I$(ONEWIFI_HOME)/source/utils \
+	-I$(ONEWIFI_HOME)/source/core \
+	-I$(ONEWIFI_HOME)/source/core/services \
+	-I$(ONEWIFI_HOME)/source/db \
 	-I$(ONEWIFI_HOME)/include \
     	-I$(ONEWIFI_BUS_LIB_HOME)/inc \
     	-I$(ONEWIFI_HOME)/lib/log \
     	-I$(ONEWIFI_HOME)/lib/ds \
+		-I$(ONEWIFI_HOME)/lib/const \
     	-I$(ONEWIFI_HOME)/source/platform/linux \
     	-I$(ONEWIFI_HOME)/source/platform/common \
     	-I$(ONEWIFI_HOME)/source/platform/linux/he_bus/inc \
@@ -43,8 +47,14 @@ INCLUDEDIRS += -I$(AL_SAP_HOME)/include
 endif
 
 $(info The value of VARIABLE is $(ONEWIFI_HAL_INTF_HOME))
-CXX_COMMON_FLAGS = -DEASY_MESH_NODE -DEM_APP -Wall -Wextra -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-aliasing -fno-common -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie -ftrapv -Wformat=2 -Wformat-security -Wuninitialized -Winit-self -Wsign-conversion -Wno-unused-parameter -fsanitize=address -fsanitize=undefined #-Wconversion -Werror -O2 -Weffc++
-CXX_SPECIFIC_FLAGS = -Wctor-dtor-privacy -Wold-style-cast -Woverloaded-virtual -Wsign-promo -Wstrict-null-sentinel -std=c++17
+CXX_COMMON_FLAGS = -DEASY_MESH_NODE -DEM_APP -Wall -Wextra -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-aliasing -fno-common -fstack-protector-strong -fPIE -ftrapv -Wformat=2 -Wformat-security -Wuninitialized -Winit-self -Wsign-conversion -Wno-unused-parameter -fsanitize=address -fsanitize=undefined #-Wconversion -Werror -O2 -Weffc++
+CXX_SPECIFIC_FLAGS = -Wctor-dtor-privacy -Wold-style-cast -Woverloaded-virtual -Wsign-promo -std=c++17
+ifneq ($(shell uname -s),Darwin)
+CXX_COMMON_FLAGS += -D_FORTIFY_SOURCE=2
+CXX_SPECIFIC_FLAGS += -Wstrict-null-sentinel
+else
+CXX_COMMON_FLAGS += -Wno-error=extern-c-compat -Wno-error=sign-conversion -Wno-error=sign-compare -Wno-error=self-assign-overloaded -Wno-error=inconsistent-missing-override -Wno-error=deprecated-declarations -Wno-error=deprecated-copy-with-user-provided-copy -Wno-error=unused-but-set-variable -Wno-error=vla-extension -Wno-error=non-pod-varargs -Wno-error=unused-private-field -Wno-error=varargs -Wno-error=format-nonliteral -Wno-error=dynamic-class-memaccess -Wno-error=unterminated-string-initialization -Wno-error=conditional-type-mismatch -Wno-error=cast-qual -Wno-incompatible-function-pointer-types
+endif
 
 ifeq ($(WITH_SAP), 1)
 CXX_COMMON_FLAGS += -DAL_SAP
@@ -55,19 +65,34 @@ $(info ENABLE_DEBUG_MODE is set)
 CXXFLAGS += -DDEBUG_MODE
 endif
 
-CXXFLAGS += $(INCLUDEDIRS) -g $(CXX_COMMON_FLAGS) $(CXX_SPECIFIC_FLAGS)
+CXXFLAGS += $(INCLUDEDIRS) -g $(CXX_COMMON_FLAGS) $(CXX_SPECIFIC_FLAGS) `mariadb_config --include`
+ifeq ($(shell uname -s),Darwin)
+CXXFLAGS += -I$(shell brew --prefix mariadb)/include
+endif
 CFLAGS += $(INCLUDEDIRS) -g $(CXX_COMMON_FLAGS)
 
-LDFLAGS += $(LIBDIRS) $(LIBS) -fsanitize=address -fsanitize=undefined -lmariadb -L$(STAGING_DIR)/usr/lib
+LDFLAGS += $(LIBDIRS) $(LIBS) -fsanitize=address -fsanitize=undefined
+ifneq ($(shell uname -s),Darwin)
+LDFLAGS += -pie -L$(STAGING_DIR)/usr/lib
+endif
 
 LIBDIRS = \
 	-L$(INSTALLDIR)/lib \
     -L$(ONEWIFI_HOME)/install/lib/
+ifeq ($(shell uname -s),Darwin)
+LIBDIRS += -L$(shell brew --prefix cjson)/lib \
+	-L$(shell brew --prefix openssl@3)/lib \
+	-L$(shell brew --prefix mariadb)/lib \
+	-L$(shell brew --prefix libev)/lib
+endif
 ifeq ($(WITH_SAP), 1)
 LIBDIRS += -L$(AL_SAP_HOME)/
 endif
 
 LIBS = -lm -lpthread -ldl -lcjson -luuid -lssl -lcrypto -lwebconfig -lhebus -lmariadb
+ifeq ($(shell uname -s),Darwin)
+LIBS := $(filter-out -luuid -lwebconfig -lhebus,$(LIBS))
+endif
 ifeq ($(WITH_SAP), 1)
 LIBS += -lalsap
 endif
@@ -75,7 +100,8 @@ endif
 GENERIC_SOURCES = $(ONEWIFI_HOME)/source/utils/collection.c \
     $(ONEWIFI_EM_SRC)/util_crypto/aes_siv.c \
     $(ONEWIFI_HOME)/lib/common/util.c \
-    $(ONEWIFI_HOME)/source/platform/linux/bus.c \
+	$(ONEWIFI_HOME)/source/platform/linux/bus.c \
+	$(wildcard $(ONEWIFI_HOME)/source/platform/linux/he_bus/src/*.c) \
 
 AGENT_SOURCES = $(wildcard $(ONEWIFI_EM_SRC)/em/*.cpp) \
 	$(wildcard $(ONEWIFI_EM_SRC)/em/config/*.cpp) \
@@ -87,6 +113,7 @@ AGENT_SOURCES = $(wildcard $(ONEWIFI_EM_SRC)/em/*.cpp) \
 	$(wildcard $(ONEWIFI_EM_SRC)/em/metrics/*.cpp) \
 	$(wildcard $(ONEWIFI_EM_SRC)/em/steering/*.cpp) \
 	$(wildcard $(ONEWIFI_EM_SRC)/em/policy_cfg/*.cpp) \
+	$(wildcard $(ONEWIFI_EM_SRC)/em/sensing/*.cpp) \
 	$(wildcard $(ONEWIFI_EM_SRC)/em/crypto/*.cpp) \
     	$(ONEWIFI_EM_SRC)/orch/em_orch.cpp \
     	$(ONEWIFI_EM_SRC)/orch/em_orch_agent.cpp \
@@ -110,8 +137,23 @@ AGENT_SOURCES = $(wildcard $(ONEWIFI_EM_SRC)/em/*.cpp) \
     $(ONEWIFI_EM_SRC)/dm/dm_bsta_mld.cpp \
     $(ONEWIFI_EM_SRC)/dm/dm_assoc_sta_mld.cpp \
     $(ONEWIFI_EM_SRC)/dm/dm_tid_to_link.cpp \
+	$(ONEWIFI_EM_SRC)/dm/dm_sensing_cap.cpp \
+	$(ONEWIFI_EM_SRC)/dm/dm_agent_sta_iface.cpp \
+	$(ONEWIFI_EM_SRC)/dm/dm_layer3_path.cpp \
+	$(ONEWIFI_EM_SRC)/dm/dm_sensing_exchange.cpp \
+	$(ONEWIFI_EM_SRC)/dm/dm_sensing_db.cpp \
+	$(ONEWIFI_EM_SRC)/dm/dm_sensing_cap.cpp \
+	$(ONEWIFI_EM_SRC)/dm/dm_agent_sta_iface.cpp \
+	$(ONEWIFI_EM_SRC)/dm/dm_layer3_path.cpp \
+	$(ONEWIFI_EM_SRC)/dm/dm_sensing_exchange.cpp \
     $(ONEWIFI_EM_SRC)/utils/util.cpp \
 	$(ONEWIFI_EM_SRC)/utils/timer.cpp \
+
+ifeq ($(shell uname -s),Darwin)
+GENERIC_SOURCES += $(ONEWIFI_HOME)/source/utils/wifi_util.c \
+	$(ONEWIFI_HOME)/source/webconfig/wifi_webconfig.c \
+	$(ONEWIFI_HOME)/source/webconfig/wifi_easymesh_translator.c
+endif
 
 AGENT_OBJECTS = $(AGENT_SOURCES:.cpp=.o)
 GENERIC_OBJECTS = $(GENERIC_SOURCES:.c=.o) 

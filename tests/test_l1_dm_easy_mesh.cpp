@@ -5349,6 +5349,9 @@ TEST(dm_easy_mesh_t, ctor_valid_network_copies_ctrl_id)
  */
 TEST(dm_easy_mesh_t, ctor_name_resolution_success_if_mac_exists)
 {
+#if defined(__APPLE__)
+    GTEST_SKIP() << "Interface name resolution uses Linux AF_PACKET APIs";
+#endif
     std::cout << "Entering ctor_name_resolution_success_if_mac_exists test" << std::endl;
     dm_network_t net{};
     memcpy(net.m_net_info.ctrl_id.mac, "\x00\x00\x00\x00\x00\x00", 6);
@@ -11551,6 +11554,9 @@ TEST(dm_easy_mesh_t, get_interface_by_index_beyond_max_boundary)
  */
 TEST(dm_easy_mesh_t, get_interfaces_list_success)
 {
+#if defined(__APPLE__)
+    GTEST_SKIP() << "Interface enumeration uses Linux AF_PACKET APIs";
+#endif
     const char* testName = "get_interfaces_list_success";
     std::cout << "Entering " << testName << std::endl;
     em_interface_t interfaces[EM_MAX_INTERFACES]{};
@@ -11591,6 +11597,9 @@ TEST(dm_easy_mesh_t, get_interfaces_list_success)
  */
 TEST(dm_easy_mesh_t, get_interfaces_list_limited_count)
 {
+#if defined(__APPLE__)
+    GTEST_SKIP() << "Interface enumeration uses Linux AF_PACKET APIs";
+#endif
     const char* testName = "get_interfaces_list_limited_count";
     std::cout << "Entering " << testName << std::endl;
     em_interface_t interfaces[2]{};
@@ -20353,6 +20362,9 @@ TEST(dm_easy_mesh_t, reset_db_cfg_type_InvalidInput_None)
  */
 TEST(dm_easy_mesh_t, mac_address_from_name_ValidInterface)
 {
+#if defined(__APPLE__)
+    GTEST_SKIP() << "Interface MAC lookup uses Linux ioctl APIs";
+#endif
     std::cout << "Entering mac_address_from_name_ValidInterface test" << std::endl;
     mac_address_t mac = {0};
     // Use a hardware-specific interface on embedded platforms, loopback on CI/generic hosts

@@ -94,7 +94,7 @@ TEST_F(EmCryptoTests, Base64UrlDecode)
     auto data = em_crypto_t::base64url_decode(test_data);
     EXPECT_NE(data, std::nullopt);
     EXPECT_EQ(data->size(), basic_base64_test_str.length());
-    EXPECT_EQ(std::string(reinterpret_cast<char *>(data->data())), basic_base64_test_str);
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(data->data()), data->size()), basic_base64_test_str);
 }
 
 TEST_F(EmCryptoTests, Base64UrlEncode)
@@ -109,7 +109,7 @@ TEST_F(EmCryptoTests, Base64Decode)
     auto data = em_crypto_t::base64url_decode(test_data);
     EXPECT_NE(data, std::nullopt);
     EXPECT_EQ(data->size(), basic_base64_test_str.length());
-    EXPECT_EQ(std::string(reinterpret_cast<char *>(data->data())), basic_base64_test_str);
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(data->data()), data->size()), basic_base64_test_str);
 }
 
 TEST_F(EmCryptoTests, Base64Encode)
@@ -151,7 +151,7 @@ TEST_F(EmCryptoTests, DecodeJWSHeader)
     auto data = em_crypto_t::base64url_decode(test_jws_header);
     EXPECT_NE(data, std::nullopt);
     EXPECT_EQ(data->size(), test_jws_header_data.length());
-    EXPECT_EQ(std::string(reinterpret_cast<char *>(data->data())), test_jws_header_data);
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(data->data()), data->size()), test_jws_header_data);
 }
 
 TEST_F(EmCryptoTests, DecodeJWSPayload)
@@ -159,7 +159,7 @@ TEST_F(EmCryptoTests, DecodeJWSPayload)
     auto data = em_crypto_t::base64url_decode(test_enc_jws_body);
     EXPECT_NE(data, std::nullopt);
     EXPECT_EQ(data->size(), test_jws_body_data.length());
-    EXPECT_EQ(std::string(reinterpret_cast<char *>(data->data())), test_jws_body_data);
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(data->data()), data->size()), test_jws_body_data);
 }
 
 TEST_F(EmCryptoTests, SignJWSConnector)

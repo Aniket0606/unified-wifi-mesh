@@ -39,6 +39,11 @@
 #include "dm_bsta_mld.h"
 #include "dm_assoc_sta_mld.h"
 #include "dm_tid_to_link.h"
+#include "dm_sensing_cap.h"
+#include "dm_agent_sta_iface.h"
+#include "dm_layer3_path.h"
+#include "dm_sensing_exchange.h"
+#include "dm_sensing_lists.h"
 #include "webconfig_external_proto.h"
 
 #define GLOBAL_NET_ID "OneWifiMesh"
@@ -52,6 +57,7 @@ class dm_easy_mesh_t {
     unsigned int ssid_mismatch_check_time = 0;
     unsigned int last_topo_query_sent_time = 0;
     bool m_is_ctlr = false;
+	uint32_t m_next_sensing_exchange_id = 1U;
 
 public:
     webconfig_subdoc_data_t *m_wifi_data;
@@ -91,6 +97,18 @@ public:
     unsigned int    m_num_assoc_sta_mld;
     dm_assoc_sta_mld_t m_assoc_sta_mld[EM_MAX_ASSOC_STA_MLD];
     dm_tid_to_link_t m_tid_to_link;
+	unsigned int m_num_sensing_caps = 0U;
+	dm_sensing_cap_t m_sensing_cap[EM_MAX_RADIO_PER_AGENT];
+	unsigned int m_num_agent_sta_ifaces = 0U;
+	dm_agent_sta_iface_t m_agent_sta_iface[EM_MAX_RADIO_PER_AGENT];
+	unsigned int m_num_layer3_paths = 0U;
+	dm_layer3_path_t m_layer3_path[EM_MAX_SERVICE];
+	unsigned int m_num_sensing_exchanges = 0U;
+	dm_sensing_exchange_t m_sensing_exchange[EM_MAX_CMD];
+	dm_sensing_cap_list_t m_sensing_cap_list;
+	dm_agent_sta_iface_list_t m_agent_sta_iface_list;
+	dm_layer3_path_list_t m_layer3_path_list;
+	dm_sensing_exchange_list_t m_sensing_exchange_list;
     em_unassoc_sta_metrics_rsp_t    m_unassoc_sta_metrics_rsp;
     em_unassoc_query_list_t m_unassoc_query_list;
 
@@ -103,6 +121,8 @@ public:
 	void set_topo_state(bool state) { m_topo_changed = state; }
 	void set_id() { m_instance_num = ++s_counter; }
 	int get_id() const { return m_instance_num; }
+	uint32_t allocate_sensing_exchange_id();
+	void reconcile_sensing_capabilities(const em_sensing_capability_snapshot_t &snapshot);
 	void set_ssid_mismatch_check_time(unsigned int time) { ssid_mismatch_check_time = time; }
 	unsigned int get_ssid_mismatch_check_time() const { return ssid_mismatch_check_time; }
 	void set_last_topo_query_sent_time(unsigned int time) { last_topo_query_sent_time = time; }

@@ -1,3 +1,4 @@
+#include "em_sensing_tlv.h"
 /**
  * Copyright 2023 Comcast Cable Communications Management, LLC
  *
@@ -228,13 +229,6 @@ static bool handle_assoc_sta_mld_topology_update(dm_easy_mesh_t *dm)
     }
 
     return sta_db_update_needed;
-}
-
-/* Extract N bytes (ignore endianess) */
-static inline void _EnB(uint8_t **packet_ppointer, void *memory_pointer, uint32_t n)
-{
-    memcpy(memory_pointer, *packet_ppointer, n);
-    (*packet_ppointer) += n;
 }
 
 /*
@@ -1557,6 +1551,31 @@ int em_configuration_t::send_topology_response_msg(unsigned char *dst, unsigned 
 	tlv_len = static_cast<short unsigned int> (create_vendor_operational_bss_tlv(tmp));
 	tmp += (sizeof(em_tlv_t) + tlv_len);
 	len += static_cast<unsigned int> (sizeof(em_tlv_t) + tlv_len);
+
+    if (dm->m_num_agent_sta_ifaces > 0U) {
+        std::vector<em_agent_sta_iface_radio_view_t> radios;
+        radios.reserve(dm->m_num_agent_sta_ifaces);
+        for (unsigned int index = 0U; index < dm->m_num_agent_sta_ifaces; ++index) {
+            const auto &interface = dm->m_agent_sta_iface[index].m_info;
+            if (interface.num_sta == 0U) {
+                continue;
+            }
+            em_agent_sta_iface_radio_view_t radio{};
+            std::memcpy(radio.ruid, interface.ruid, sizeof(mac_address_t));
+            for (uint8_t sta = 0U; sta < interface.num_sta; ++sta) {
+                std::array<uint8_t, 6> address{};
+                std::memcpy(address.data(), interface.agent_sta_mac[sta], sizeof(mac_address_t));
+                radio.agent_sta_mac_addresses.push_back(address);
+            }
+            radios.push_back(radio);
+        }
+        std::vector<uint8_t> agent_sta_tlv;
+        if (!radios.empty() && em_encode_agent_sta_iface_tlv(radios, agent_sta_tlv)) {
+            std::memcpy(tmp, agent_sta_tlv.data(), agent_sta_tlv.size());
+            tmp += agent_sta_tlv.size();
+            len += static_cast<unsigned int>(agent_sta_tlv.size());
+        }
+    }
 
     // End of message
     tlv = reinterpret_cast<em_tlv_t *> (tmp);
@@ -5386,7 +5405,8 @@ int em_configuration_t::create_encrypted_settings(unsigned char *buff, em_haul_t
     len = 0;
 
     dm_easy_mesh_t *dm = get_data_model();
-    unsigned int radio_exists, i;
+    unsigned int i;
+    bool radio_exists = false;
     dm_radio_t * radio = NULL;
 
     for (i = 0; i < dm->get_num_radios(); i++) {

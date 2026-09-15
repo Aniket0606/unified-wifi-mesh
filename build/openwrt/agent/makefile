@@ -100,6 +100,7 @@ AGENT_SOURCES = $(wildcard $(ONEWIFI_EM_SRC)/em/*.cpp) \
 	$(wildcard $(ONEWIFI_EM_SRC)/em/metrics/*.cpp) \
 	$(wildcard $(ONEWIFI_EM_SRC)/em/steering/*.cpp) \
 	$(wildcard $(ONEWIFI_EM_SRC)/em/policy_cfg/*.cpp) \
+	$(wildcard $(ONEWIFI_EM_SRC)/em/sensing/*.cpp) \
 	$(wildcard $(ONEWIFI_EM_SRC)/em/crypto/*.cpp) \
     	$(ONEWIFI_EM_SRC)/orch/em_orch.cpp \
     	$(ONEWIFI_EM_SRC)/orch/em_orch_agent.cpp \

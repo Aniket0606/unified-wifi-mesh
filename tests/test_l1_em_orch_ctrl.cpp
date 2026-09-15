@@ -999,9 +999,10 @@ TEST_F(em_orch_ctrl_t_TEST, em_orch_ctrl_t_TEST_valid_manager)
 {
     std::cout << "Entering em_orch_ctrl_t_TEST_valid_manager test" << std::endl;
     em_ctrl_t mmgr;
-    em_orch_ctrl_t *orchCtrl;
+    em_orch_ctrl_t *orchCtrl = nullptr;
     std::cout << "Invoking em_orch_ctrl_t_TEST constructor with valid mgr object" << std::endl;
     EXPECT_NO_THROW(orchCtrl = new em_orch_ctrl_t(&mgr));
+    ASSERT_NE(orchCtrl, nullptr);
     queue_destroy(orchCtrl->m_pending);
     queue_destroy(orchCtrl->m_active);
     hash_map_destroy(orchCtrl->m_cmd_map);

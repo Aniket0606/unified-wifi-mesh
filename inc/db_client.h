@@ -19,7 +19,8 @@
 #ifndef DB_CLIENT_H
 #define DB_CLIENT_H
 
-#if defined(OPENWRT_BUILD) || defined(RDKB_BUILD)
+#if defined(OPENWRT_BUILD) || defined(RDKB_BUILD) || defined(__APPLE__)
+//@TBD Aniket needs to revisit: #if defined(OPENWRT_BUILD) || defined(RDKB_BUILD)
 // MariaDB C client header for cross-compiled builds (OpenWRT / RDKB), where headers are under <mysql/>
 #include <mysql/mysql.h>
 #else

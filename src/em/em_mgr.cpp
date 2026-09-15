@@ -25,11 +25,13 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#if defined(__linux__)
 #include <linux/filter.h>
 #include <netinet/ether.h>
 #include <netpacket/packet.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#endif
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
@@ -359,7 +361,7 @@ int em_mgr_t::input_listen()
 
 int em_mgr_t::reset_listeners()
 {
-    int highest_fd = 0, num = 0;
+    int highest_fd = 0;
     em_t *em = NULL;
 
     FD_ZERO(&m_rset);
@@ -369,7 +371,6 @@ int em_mgr_t::reset_listeners()
     while (em != NULL) {
         if (em->is_al_interface_em() == true) {
             FD_SET(em->get_fd(), &m_rset);
-            num++;
             highest_fd = (em->get_fd() > highest_fd) ? em->get_fd():highest_fd;
         }
         em = static_cast<em_t *>(hash_map_get_next(m_em_map, em));

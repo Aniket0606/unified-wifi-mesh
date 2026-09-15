@@ -44,6 +44,7 @@ const (
 	WiFiEventsCmd         = "WiFi Events"
 	WiFiResetCmd          = "WiFi Reset"
 	DebugCmd              = "Debugging & Testing"
+	SensingCmd            = "WiFi Sensing"
 
 	GET  = 0
 	GETX = 1
@@ -260,6 +261,15 @@ func CreateEasyMeshCommands() map[string]EasyMeshCmd {
 			SetCommand:           "set_dev_test OneWifiMesh",
 			Help:                 "",
 			AllowUnmodifiedApply: true,
+		},
+		SensingCmd: {
+			Title:                SensingCmd,
+			LoadOrder:            14,
+			GetCommand:           "sensing_capabilities OneWifiMesh",
+			GetCommandEx:         "sensing_layer3_path OneWifiMesh",
+			SetCommand:           "sensing_exchange OneWifiMesh",
+			Help:                 "Wi-Fi Sensing capabilities and exchange controls",
+			AllowUnmodifiedApply: false,
 		},
 	}
 }

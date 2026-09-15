@@ -61,6 +61,14 @@ onewifi_em_agent_SOURCES =  \
      $(top_srcdir)/src/em/metrics/em_metrics.cpp \
      $(top_srcdir)/src/em/steering/em_steering.cpp \
      $(top_srcdir)/src/em/policy_cfg/em_policy_cfg.cpp \
+    $(top_srcdir)/src/em/sensing/em_sensing.cpp \
+    $(top_srcdir)/src/em/sensing/em_sensing_tlv.cpp \
+    $(top_srcdir)/src/em/sensing/em_sensing_ll_stub.cpp \
+    $(top_srcdir)/src/em/sensing/em_sensing_l3.cpp \
+    $(top_srcdir)/src/em/sensing/em_sensing_path.cpp \
+    $(top_srcdir)/src/em/sensing/em_sensing_session.cpp \
+    $(top_srcdir)/src/em/sensing/em_sensing_receiver.cpp \
+    $(top_srcdir)/src/em/sensing/em_sensing_exchange.cpp \
      $(top_srcdir)/src/em/crypto/em_crypto.cpp \
      $(top_srcdir)/src/cmd/em_cmd_ap_cap.cpp \
      $(top_srcdir)/src/cmd/em_cmd_cfg_renew.cpp \
@@ -120,6 +128,11 @@ onewifi_em_agent_SOURCES =  \
      $(top_srcdir)/src/dm/dm_radio.cpp \
      $(top_srcdir)/src/dm/dm_sta.cpp \
      $(top_srcdir)/src/dm/dm_tid_to_link.cpp \
+    $(top_srcdir)/src/dm/dm_sensing_cap.cpp \
+    $(top_srcdir)/src/dm/dm_agent_sta_iface.cpp \
+    $(top_srcdir)/src/dm/dm_layer3_path.cpp \
+    $(top_srcdir)/src/dm/dm_sensing_exchange.cpp \
+    $(top_srcdir)/src/dm/dm_sensing_db.cpp \
      $(top_srcdir)/src/dm/dm_bsta_mld.cpp \
      $(top_srcdir)/src/dm/dm_assoc_sta_mld.cpp \
      $(top_srcdir)/src/orch/em_orch.cpp  \

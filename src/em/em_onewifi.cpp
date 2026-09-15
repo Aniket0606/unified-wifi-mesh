@@ -29,11 +29,13 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#if defined(__linux__)
 #include <linux/filter.h>
 #include <netinet/ether.h>
 #include <netpacket/packet.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#endif
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
@@ -84,6 +86,11 @@ void em_onewifi_t::string_to_macbytes(char *key, mac_address_t bmac)
 
 int em_onewifi_t::mac_address_from_name(const char *ifname, mac_address_t mac)
 {
+#if !defined(__linux__)
+    (void)ifname;
+    (void)mac;
+    return -1;
+#else
     int sock;
     struct ifreq ifr;
 
@@ -106,4 +113,5 @@ int em_onewifi_t::mac_address_from_name(const char *ifname, mac_address_t mac)
     close(sock);
 
     return 0;
+#endif
 }

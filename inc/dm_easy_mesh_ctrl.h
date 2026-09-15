@@ -36,6 +36,7 @@
 #include "dm_easy_mesh_list.h"
 #include "em_network_topo.h"
 #include "dm_easy_mesh.h"
+#include "dm_sensing_db.h"
 
 class em_cmd_t;
 class dm_easy_mesh_t;
@@ -46,6 +47,7 @@ class dm_easy_mesh_ctrl_t :
     public dm_ieee_1905_security_list_t, public dm_radio_list_t, public dm_radio_cap_list_t,
     public dm_op_class_list_t, public dm_bss_list_t, public dm_sta_list_t, public dm_policy_list_t,
 	public dm_scan_result_list_t {
+	dm_sensing_db_tables_t m_sensing_db_tables;
 
 public:
     int m_nb_pipe_rd;

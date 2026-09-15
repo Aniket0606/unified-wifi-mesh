@@ -42,6 +42,7 @@
 #include <fstream>
 #include <stdexcept>
 #include "dm_easy_mesh.h"
+#include <algorithm>
 #include "em_cmd_dev_init.h"
 #include <cjson/cJSON.h>
 #include "em_cmd_sta_list.h"
@@ -2062,6 +2063,13 @@ em_interface_t *dm_easy_mesh_t::get_prioritized_interface(const char *platform)
 
 int dm_easy_mesh_t::get_interfaces_list(em_interface_t interfaces[], unsigned int *num_interfaces)
 {
+//Aniket revisit this code and remove it.
+#if !defined(__linux__)
+    (void)interfaces;
+    (void)num_interfaces;
+    return -1;
+#else
+// code end point
     struct ifaddrs *ifaddr = NULL, *tmp = NULL;
     struct sockaddr *addr;
 	struct sockaddr_ll *ll_addr;	
@@ -2111,10 +2119,18 @@ int dm_easy_mesh_t::get_interfaces_list(em_interface_t interfaces[], unsigned in
 	*num_interfaces = num;
 
     return 0;
+#endif
 }
 
 int dm_easy_mesh_t::mac_address_from_name(const char *ifname, mac_address_t mac)
 {
+    //Aniket revisit this code and remove it.
+#if !defined(__linux__)
+    (void)ifname;
+    (void)mac;
+    return -1;
+#else
+//code end point
     int sock;
     struct ifreq ifr;
 
@@ -2137,10 +2153,18 @@ int dm_easy_mesh_t::mac_address_from_name(const char *ifname, mac_address_t mac)
     close(sock);
 
     return 0;
+#endif
 }
 
 int dm_easy_mesh_t::name_from_mac_address(const mac_address_t *mac, char *ifname)
 {
+    //Aniket revisit this code and remove it.
+#if !defined(__linux__)
+    (void)mac;
+    (void)ifname;
+    return -1;
+#else
+//code end point
     struct ifaddrs *ifaddr = NULL, *tmp = NULL;
     struct sockaddr *addr;
     struct sockaddr_ll *ll_addr;
@@ -2167,6 +2191,7 @@ int dm_easy_mesh_t::name_from_mac_address(const mac_address_t *mac, char *ifname
     freeifaddrs(ifaddr);
 
     return (found == true) ? 0:-1;
+#endif
 }
 
 rdk_wifi_radio_t *dm_easy_mesh_t::get_radio_data(em_interface_t *interface)
@@ -3752,6 +3777,48 @@ dm_easy_mesh_t::dm_easy_mesh_t()
     m_db_cfg_param.db_cfg_type = db_cfg_type_none;
     m_colocated = false;
     m_is_ctlr = false;
+}
+
+uint32_t dm_easy_mesh_t::allocate_sensing_exchange_id()
+{
+    for (uint32_t attempts = 0U; attempts < UINT32_MAX; ++attempts) {
+        const uint32_t candidate = m_next_sensing_exchange_id++;
+        if (candidate == 0U) {
+            continue;
+        }
+        bool used = false;
+        for (unsigned int index = 0U; index < m_num_sensing_exchanges; ++index) {
+            if (m_sensing_exchange[index].m_info.exchange_id == candidate) {
+                used = true;
+                break;
+            }
+        }
+        if (!used) {
+            return candidate;
+        }
+    }
+    return 0U;
+}
+
+void dm_easy_mesh_t::reconcile_sensing_capabilities(const em_sensing_capability_snapshot_t &snapshot)
+{
+    m_num_sensing_caps = 0U;
+    for (const auto &radio : snapshot.radios) {
+        if (m_num_sensing_caps >= EM_MAX_RADIO_PER_AGENT) {
+            break;
+        }
+        dm_sensing_cap_t &capability = m_sensing_cap[m_num_sensing_caps++];
+        capability.init();
+        std::memcpy(capability.m_info.ruid, radio.ruid, sizeof(mac_address_t));
+        capability.m_info.layer3_transport_flags = snapshot.layer3_transport_flags;
+        capability.m_info.bss_flags = radio.bss_flags;
+        capability.m_info.sta_flags = radio.sta_flags;
+        std::memcpy(capability.m_info.bss_capabilities, radio.bss_capabilities.data(), 9U);
+        std::memcpy(capability.m_info.sta_capabilities, radio.sta_capabilities.data(), 9U);
+        capability.m_info.num_data_types = static_cast<uint8_t>(std::min(radio.data_types.size(), size_t(8U)));
+        std::copy_n(radio.data_types.begin(), capability.m_info.num_data_types, capability.m_info.data_types);
+    }
+    m_sensing_cap_list.entries.assign(m_sensing_cap, m_sensing_cap + m_num_sensing_caps);
 }
 
 dm_easy_mesh_t::~dm_easy_mesh_t()

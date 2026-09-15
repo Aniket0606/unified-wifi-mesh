@@ -29,11 +29,15 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#if defined(__linux__)
 #include <linux/filter.h>
 #include <netinet/ether.h>
 #include <netpacket/packet.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#else
+#include <net/ethernet.h>
+#endif
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
@@ -258,6 +262,36 @@ void em_t::orch_execute(em_cmd_t *pcmd)
         case em_cmd_type_unassoc_sta_result:
             m_sm.set_state(em_state_agent_unassoc_sta_metrics_report_pending);
             break;
+
+        case em_cmd_type_layer3_path_setup:
+            m_sm.set_state((m_service_type == em_service_type_agent) ?
+                em_state_agent_layer3_path_setup_pending :
+                em_state_ctrl_layer3_path_setup_pending);
+            if (m_service_type == em_service_type_ctrl && pcmd->m_data_model.m_num_layer3_paths > 0U) {
+                em_raw_hdr_t route{};
+                std::memcpy(route.dst, get_peer_mac(), sizeof(mac_address_t));
+                std::memcpy(route.src, get_al_interface_mac(), sizeof(mac_address_t));
+                (void)send_layer3_path_setup(route, pcmd->m_data_model.m_layer3_path[0].m_info, true);
+            }
+            break;
+
+        case em_cmd_type_sensing_exchange:
+        case em_cmd_type_sensing_mq:
+        case em_cmd_type_trigger_probe:
+            m_sm.set_state((m_service_type == em_service_type_agent) ?
+                em_state_agent_sensing_exchange_pending : em_state_ctrl_sensing_exchange_pending);
+            break;
+
+        case em_cmd_type_sensing_agent_sta:
+            m_sm.set_state(em_state_ctrl_configured);
+            if (m_service_type == em_service_type_ctrl && pcmd->m_data_model.m_num_agent_sta_ifaces > 0U) {
+                em_raw_hdr_t route{};
+                std::memcpy(route.dst, get_peer_mac(), sizeof(mac_address_t));
+                std::memcpy(route.src, get_al_interface_mac(), sizeof(mac_address_t));
+                const auto &iface = pcmd->m_data_model.m_agent_sta_iface[0].m_info;
+                (void)send_agent_sta_iface_config(route, iface.ruid, iface.num_sta);
+            }
+            break;
         
 	default:
             break;
@@ -306,6 +340,19 @@ void em_t::proto_process(unsigned char *data, unsigned int len)
         case em_msg_type_bss_config_res:
         case em_msg_type_agent_list:
             em_configuration_t::process_msg(data, len);
+            break;
+
+        case em_msg_type_sensing_exchange_req:
+        case em_msg_type_sensing_exchange_rsp:
+        case em_msg_type_layer3_path_setup_req:
+        case em_msg_type_layer3_path_setup_rsp:
+        case em_msg_type_agent_sta_iface_config_req:
+        case em_msg_type_agent_sta_iface_config_rprt:
+        case em_msg_type_sensing_mq_req:
+        case em_msg_type_sensing_mq_rsp:
+        case em_msg_type_trigger_probe_req:
+        case em_msg_type_trigger_probe_req_rsp:
+            em_sensing_t::process_msg(data, len);
             break;
 
         case em_msg_type_ap_cap_query:
@@ -681,6 +728,9 @@ void em_t::deinit()
 
 int em_t::set_bp_filter()
 {
+#if !defined(__linux__)
+    return -1;
+#else
     struct packet_mreq mreq;
 #define OP_LDH (BPF_LD  | BPF_H   | BPF_ABS)
 #define OP_LDB (BPF_LD  | BPF_B   | BPF_ABS)
@@ -710,13 +760,14 @@ int em_t::set_bp_filter()
     }
 
     return 0;
+#endif
 }
 
 int em_t::start_al_interface()
 {
 #ifdef AL_SAP
     m_fd = g_sap->getDataSocketDescriptor();
-#else
+#elif defined(__linux__)
     int sock_fd;
     struct sockaddr_ll addr_ll;
     struct sockaddr *addr;
@@ -743,6 +794,8 @@ int em_t::start_al_interface()
     m_fd = sock_fd;
 
     set_bp_filter();
+#else
+    return -1;
 #endif // AL_SAP
     return 0;
 }
@@ -755,7 +808,9 @@ int em_t::send_cmd(em_cmd_exec_t *exec, em_cmd_type_t type, em_service_type_t sv
 int em_t::send_frame(unsigned char *buff, unsigned int len, bool multicast)
 {
     int ret = 0;
+#if defined(AL_SAP) || defined(__linux__)
     em_raw_hdr_t *hdr = reinterpret_cast<em_raw_hdr_t *>(buff);
+#endif
 
 #ifdef AL_SAP
 #ifdef DEBUG_MODE
@@ -778,7 +833,7 @@ int em_t::send_frame(unsigned char *buff, unsigned int len, bool multicast)
     // Copy over the payload, excluding the header
     sdu.setPayload({buff + sizeof(em_raw_hdr_t), buff + len});
     g_sap->serviceAccessPointDataRequest(sdu);
-#else
+#elif defined(__linux__)
     em_short_string_t   ifname;
     struct sockaddr_ll sadr_ll;
     int sock;
@@ -799,6 +854,8 @@ int em_t::send_frame(unsigned char *buff, unsigned int len, bool multicast)
 
     ret = static_cast<int>(sendto(sock, buff, len, 0, reinterpret_cast<const struct sockaddr*>(&sadr_ll), sizeof(struct sockaddr_ll)));
     close(sock);
+#else
+    return -1;
 #endif
    
     return ret;
@@ -1485,7 +1542,7 @@ short em_t::create_wifi7_tlv(unsigned char *buff)
     unsigned char *tmp = buff;
 
     em_wifi7_cap_link_info_tlv_t *link_info = reinterpret_cast<em_wifi7_cap_link_info_tlv_t *>(tmp);
-    if ((link_info == NULL)) {
+    if (link_info == NULL) {
         em_printfout("No data Found");
         return 0;
     }
@@ -2652,7 +2709,7 @@ int em_t::handle_wifi7_agent_cap_tlv(unsigned char *buff)
     em_wifi7_agent_cap_t *em_wifi7_cap = NULL;
 
     em_wifi7_cap_link_info_tlv_t *link_info = reinterpret_cast<em_wifi7_cap_link_info_tlv_t *>(tmp);
-    if ((link_info == NULL)) {
+    if (link_info == NULL) {
         em_printfout("No data Found");
         return 0;
     }
@@ -2879,6 +2936,10 @@ const char *em_t::state_2_str(em_state_t state)
         EM_STATE_2S(em_state_ctrl_bsta_cap_pending)
         EM_STATE_2S(em_state_ctrl_topo_publish_pending)
 	EM_STATE_2S(em_state_ctrl_unassoc_sta_link_metrics_pending)
+    EM_STATE_2S(em_state_ctrl_layer3_path_setup_pending)
+    EM_STATE_2S(em_state_ctrl_layer3_path_configured)
+    EM_STATE_2S(em_state_ctrl_sensing_exchange_pending)
+    EM_STATE_2S(em_state_ctrl_sensing_exchange_configured)
         EM_STATE_2S(em_state_agent_unconfigured)
         EM_STATE_2S(em_state_agent_autoconfig_rsp_pending)
         EM_STATE_2S(em_state_agent_wsc_m2_pending)
@@ -2899,6 +2960,10 @@ const char *em_t::state_2_str(em_state_t state)
         EM_STATE_2S(em_state_agent_beacon_report_pending)
         EM_STATE_2S(em_state_agent_channel_select_configuration_pending)
 	EM_STATE_2S(em_state_agent_unassoc_sta_metrics_report_pending)
+    EM_STATE_2S(em_state_agent_layer3_path_setup_pending)
+    EM_STATE_2S(em_state_agent_layer3_path_configured)
+    EM_STATE_2S(em_state_agent_sensing_exchange_pending)
+    EM_STATE_2S(em_state_agent_sensing_exchange_configured)
         EM_STATE_2S(em_state_max)
         default: break;
     }
@@ -3091,6 +3156,42 @@ em_t::em_t(em_interface_t *ruid, em_freq_band_t band, dm_easy_mesh_t *dm, em_mgr
     RAND_bytes(get_crypto_info()->r_nonce, sizeof(em_nonce_t));
     m_data_model = dm;
 	m_mgr = mgr;
+    set_send_callback([this](unsigned char *buffer, unsigned int length) {
+        return send_frame(buffer, length);
+    });
+    set_path_result_callback([dm](const dm_layer3_path_info_t &path) {
+        if (dm->m_num_layer3_paths == 0U) { return; }
+        dm->m_layer3_path[0].m_info.source_port = path.source_port;
+        dm->m_layer3_path[0].m_info.active = path.active;
+    });
+    set_local_bss_callback([dm](const mac_address_t bssid) {
+        for (unsigned int index = 0U; index < dm->get_num_bss(); ++index) {
+            const em_bss_info_t *local_bss = dm->get_bss_info(index);
+            if (local_bss != nullptr &&
+                std::memcmp(local_bss->bssid.mac, bssid, sizeof(mac_address_t)) == 0) {
+                return true;
+            }
+        }
+        return false;
+    });
+    set_associated_sta_callback([dm](const mac_address_t bssid, const mac_address_t sta) {
+        return dm->is_sta_associated(const_cast<unsigned char *>(bssid),
+            const_cast<unsigned char *>(sta));
+    });
+    set_agent_sta_report_callback([dm](const std::vector<em_agent_sta_iface_radio_view_t> &report) {
+        dm->m_num_agent_sta_ifaces = static_cast<unsigned int>(std::min(report.size(),
+            static_cast<size_t>(EM_MAX_RADIO_PER_AGENT)));
+        for (unsigned int index = 0U; index < dm->m_num_agent_sta_ifaces; ++index) {
+            dm->m_agent_sta_iface[index].init();
+            std::memcpy(dm->m_agent_sta_iface[index].m_info.ruid, report[index].ruid, sizeof(mac_address_t));
+            dm->m_agent_sta_iface[index].m_info.num_sta = static_cast<uint8_t>(std::min(
+                report[index].agent_sta_mac_addresses.size(), static_cast<size_t>(EM_MAX_RADIO_PER_AGENT)));
+            for (uint8_t sta = 0U; sta < dm->m_agent_sta_iface[index].m_info.num_sta; ++sta) {
+                std::memcpy(dm->m_agent_sta_iface[index].m_info.agent_sta_mac[sta],
+                    report[index].agent_sta_mac_addresses[sta].data(), sizeof(mac_address_t));
+            }
+        }
+    });
 
     // We'll only create the EC manager on the AL node
     if (is_al_em){

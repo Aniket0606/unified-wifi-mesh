@@ -17,7 +17,7 @@
  */
 
 #ifndef EM_CMD_RD_CAP_H
-#define EM_CMD_RD_CAP__H
+#define EM_CMD_RD_CAP_H
 
 #include "em_cmd.h"
 

@@ -1515,6 +1515,76 @@
                             "ID": {
                                 "type": "string"
                             },
+                            "Sensing": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "SupportedDataTypes": {
+                                        "type": "array",
+                                        "items": {
+                                            "$ref": "#/definitions/uint32_t"
+                                        }
+                                    },
+                                    "SupportedExchangeTypes": {
+                                        "type": "array",
+                                        "items": {
+                                            "$ref": "#/definitions/uint8_t"
+                                        }
+                                    },
+                                    "Layer3TransportFlags": {
+                                        "$ref": "#/definitions/uint8_t"
+                                    },
+                                    "Radios": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": ["RUID"],
+                                            "properties": {
+                                                "RUID": {"$ref": "#/definitions/macaddr_t"},
+                                                "BSSFlags": {"$ref": "#/definitions/uint8_t"},
+                                                "STAFlags": {"$ref": "#/definitions/uint8_t"},
+                                                "AgentSTAMAC": {
+                                                    "type": "array",
+                                                    "items": {"$ref": "#/definitions/macaddr_t"}
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "Layer3Paths": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": ["ServiceName", "TransportProtocol"],
+                                            "properties": {
+                                                "ServiceName": {"$ref": "#/definitions/uint16_t"},
+                                                "TransportProtocol": {"$ref": "#/definitions/uint8_t"},
+                                                "DestinationPort": {"$ref": "#/definitions/uint16_t"},
+                                                "SourcePort": {"$ref": "#/definitions/uint16_t"},
+                                                "Active": {"type": "boolean"}
+                                            }
+                                        }
+                                    },
+                                    "Exchanges": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": ["ExchangeID", "ExchangeType", "ResultCode"],
+                                            "properties": {
+                                                "ExchangeID": {"$ref": "#/definitions/uint32_t"},
+                                                "ExchangeType": {"$ref": "#/definitions/uint8_t"},
+                                                "MeasurementsRequested": {"type": "boolean"},
+                                                "Period": {"$ref": "#/definitions/uint16_t"},
+                                                "Bandwidth": {"$ref": "#/definitions/uint16_t"},
+                                                "DataType": {"$ref": "#/definitions/uint32_t"},
+                                                "ResultCode": {"$ref": "#/definitions/uint8_t"}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
                             "MultiAPCapabilities": {
                                 "type": [
                                     "string",

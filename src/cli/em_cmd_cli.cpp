@@ -69,7 +69,12 @@ em_cmd_params_t spec_params[] = {
     {.u = {.args = {2, {"", "", "", "", ""}, "MLDConfig"}}},
     {.u = {.args = {2, {"", "", "", "", ""}, "MLDReconfig"}}},
 	{.u = {.args = {2, {"", "", "", "", ""}, "DevTest.json"}}},
-	{.u = {.args = {0, {"", "", "", "", ""}, "max"}}},
+    {.u = {.args = {1, {"", "", "", "", ""}, "SensingCapabilities"}}},
+    {.u = {.args = {2, {"", "", "", "", ""}, "AgentSTAInterface"}}},
+    {.u = {.args = {2, {"", "", "", "", ""}, "SensingLayer3Path"}}},
+    {.u = {.args = {2, {"", "", "", "", ""}, "SensingExchange"}}},
+    {.u = {.args = {2, {"", "", "", "", ""}, "SensingProbe"}}},
+    {.u = {.args = {0, {"", "", "", "", ""}, "max"}}},
 };
 
 em_cmd_t em_cmd_cli_t::m_client_cmd_spec[] = {
@@ -103,7 +108,12 @@ em_cmd_t em_cmd_cli_t::m_client_cmd_spec[] = {
     em_cmd_t(em_cmd_type_get_mld_config, spec_params[26]),
     em_cmd_t(em_cmd_type_mld_reconfig, spec_params[27]),
     em_cmd_t(em_cmd_type_set_dev_test, spec_params[28]),
-    em_cmd_t(em_cmd_type_max, spec_params[29]),
+    em_cmd_t(em_cmd_type_sensing_capabilities, spec_params[29]),
+    em_cmd_t(em_cmd_type_sensing_agent_sta, spec_params[30]),
+    em_cmd_t(em_cmd_type_sensing_layer3_path, spec_params[31]),
+    em_cmd_t(em_cmd_type_sensing_exchange, spec_params[32]),
+    em_cmd_t(em_cmd_type_sensing_probe, spec_params[33]),
+    em_cmd_t(em_cmd_type_max, spec_params[34]),
 };
 
 int em_cmd_cli_t::get_edited_node(em_network_node_t *node, const char *header, char *buff)
@@ -455,6 +465,14 @@ int em_cmd_cli_t::execute(char *result)
             info = &bevt->u.subdoc;
             snprintf(info->name, sizeof(info->name), "%s", param->u.args.fixed_args);
             break;
+
+        case em_cmd_type_sensing_capabilities:
+        case em_cmd_type_sensing_agent_sta:
+        case em_cmd_type_sensing_layer3_path:
+        case em_cmd_type_sensing_exchange:
+        case em_cmd_type_sensing_probe:
+            fprintf(stderr, "Sensing CLI command is registered but its orchestration handler is not available yet\n");
+            return -1;
 
         default:
             break;

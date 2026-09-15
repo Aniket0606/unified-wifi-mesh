@@ -232,11 +232,19 @@ static const mac_address_t EM_GLOBAL_MAC_ADDRESS = {0xff, 0xff, 0xff, 0xff, 0xff
 #define EM_CLI_PATH "cli"
 #define EM_AGENT_PORT	0xc000
 #define EM_CTRL_PORT    0xc001
-#define EM_CERT_FILE	"/nvram/test_cert.crt"
-#define EM_KEY_FILE	"/nvram//test_cert.key"
+#if defined(__APPLE__)
+//Aniket revisit this code and remove it.
+/* macOS tests cannot write to the embedded device's /nvram mount. */
+#define EM_NVRAM_DIR "/tmp/unified-wifi-mesh-nvram"
+#else
+#define EM_NVRAM_DIR "/nvram"
+#endif
+#define EM_CERT_FILE EM_NVRAM_DIR "/test_cert.crt"
+#define EM_KEY_FILE EM_NVRAM_DIR "/test_cert.key"
 
-#define EM_CFG_FILE "/nvram/EasymeshCfg.json"
-#define EM_PLUS_FILE "/nvram/EasymeshPlus.json"
+#define EM_CFG_FILE EM_NVRAM_DIR "/EasymeshCfg.json"
+#define EM_PLUS_FILE EM_NVRAM_DIR "/EasymeshPlus.json"
+// code end point
 #define EM_VENDOR_OUI_SIZE 3
 
 #define EM_MAX_SSID_LEN                33 
@@ -713,6 +721,16 @@ typedef enum {
     em_msg_type_bsta_mld_config_req,
     em_msg_type_bsta_mld_config_resp,
     em_msg_type_avail_spectrum_inquiry = 0x8049,
+    em_msg_type_sensing_exchange_req = 0x804e,
+    em_msg_type_sensing_exchange_rsp,
+    em_msg_type_layer3_path_setup_req,
+    em_msg_type_layer3_path_setup_rsp,
+    em_msg_type_agent_sta_iface_config_req,
+    em_msg_type_agent_sta_iface_config_rprt,
+    em_msg_type_sensing_mq_req,
+    em_msg_type_sensing_mq_rsp,
+    em_msg_type_trigger_probe_req,
+    em_msg_type_trigger_probe_req_rsp,
 } em_msg_type_t;
 
 typedef enum {
@@ -874,10 +892,163 @@ typedef enum {
     em_tlv_eht_operations = 0xe7,
     em_tlv_type_avail_spectrum_inquiry_reg = 0xe8,
     em_tlv_type_avail_spectrum_inquiry_rsp = 0xe9,
+    em_tlv_type_rsn_diagnostic_report = 0xea,
+    em_tlv_type_rsn_parameters_config = 0xeb,
+    em_tlv_type_bss_advanced_config = 0xec,
+    em_tlv_type_supported_cipher_suites = 0xed,
+    em_tlv_type_layer3_transport_cap = 0xee,
+    em_tlv_type_sensing_cap = 0xef,
+    em_tlv_type_sensing_exchange_req = 0xf0,
+    em_tlv_type_sensing_exchange_rsp = 0xf1,
     em_tlv_type_vendor_operational_bss = 0xf2,
+    em_tlv_type_layer3_path_setup_req = 0xf3,
+    em_tlv_type_layer3_path_setup_rsp = 0xf4,
+    em_tlv_type_agent_sta_iface = 0xf5,
+    em_tlv_type_sensing_mq_req = 0xf6,
+    em_tlv_type_sensing_mq_rsp = 0xf7,
+    em_tlv_type_trigger_probe_req = 0xf8,
 
     em_tlv_type_max
 } em_tlv_type_t;
+
+typedef enum {
+    em_sensing_exchange_qos_null = 0,
+    em_sensing_exchange_tb = 1,
+    em_sensing_exchange_non_tb = 2,
+} em_sensing_exchange_type_t;
+
+typedef enum {
+    em_sensing_exchange_created = 0,
+    em_sensing_exchange_terminated = 1,
+    em_sensing_exchange_no_layer3_path = 2,
+    em_sensing_exchange_device_unavailable = 3,
+    em_sensing_exchange_request_declined = 4,
+    em_sensing_exchange_timeout = 5,
+} em_sensing_exchange_result_t;
+
+typedef enum {
+    em_sensing_mq_success = 0,
+    em_sensing_mq_sta_not_present = 1,
+    em_sensing_mq_sta_unavailable = 2,
+    em_sensing_mq_no_response = 3,
+    em_sensing_mq_timeout = 4,
+} em_sensing_mq_result_t;
+
+typedef enum {
+    em_layer3_service_sensing = 0,
+    em_layer3_service_qos_management_dar = 1,
+} em_layer3_service_name_t;
+
+typedef enum {
+    em_layer3_transport_udp_ipv6 = 0,
+    em_layer3_transport_tcp_ipv6 = 1,
+    em_layer3_transport_udp_ipv4 = 2,
+    em_layer3_transport_tcp_ipv4 = 3,
+} em_layer3_transport_protocol_t;
+
+static const unsigned int EM_SENSING_DATA_TYPE_IEEE_CSI = 0x000fac00;
+static const unsigned char EM_TUNNELED_PROTOCOL_SENSING_PROBE_RESPONSE = 0x07;
+
+typedef struct {
+    unsigned short version;
+    unsigned short service_name;
+    unsigned short service_header_len;
+} __attribute__((__packed__)) em_layer3_path_payload_hdr_t;
+
+typedef struct {
+    unsigned int data_type;
+    unsigned long long timestamp;
+    unsigned int exchange_id;
+    mac_address_t transmitter;
+    mac_address_t receiver;
+    unsigned short antenna_generation;
+    unsigned int data_len;
+} __attribute__((__packed__)) em_sensing_payload_hdr_t;
+
+typedef struct {
+    unsigned char transport_flags;
+} __attribute__((__packed__)) em_layer3_transport_cap_t;
+
+typedef struct {
+    unsigned int exchange_id;
+    unsigned char flags;
+    unsigned char exchange_type;
+    unsigned short period;
+    unsigned short bandwidth;
+    unsigned char n_tx;
+    unsigned char n_rx;
+    unsigned int data_type;
+    mac_address_t transmitter;
+    mac_address_t receiver;
+} __attribute__((__packed__)) em_sensing_exchange_req_t;
+
+typedef struct {
+    unsigned int exchange_id;
+    unsigned char result_code;
+} __attribute__((__packed__)) em_sensing_exchange_rsp_t;
+
+typedef struct {
+    unsigned char flags;
+    unsigned short service_name;
+    unsigned char transport_protocol;
+    unsigned char destination_address[16];
+    unsigned short destination_port;
+} __attribute__((__packed__)) em_layer3_path_setup_req_t;
+
+typedef struct {
+    unsigned short service_name;
+    unsigned char result_code;
+    unsigned char source_address[16];
+    unsigned short source_port;
+} __attribute__((__packed__)) em_layer3_path_setup_rsp_t;
+
+typedef struct {
+    mac_address_t agent_sta_mac_addr;
+    mac_address_t bssid;
+} __attribute__((__packed__)) em_sensing_mq_req_t;
+
+typedef struct {
+    mac_address_t agent_sta_mac_addr;
+    mac_address_t bssid;
+    unsigned char result_code;
+} __attribute__((__packed__)) em_sensing_mq_rsp_t;
+
+typedef struct {
+    mac_address_t agent_sta_mac_addr;
+    unsigned char num_bssid;
+    mac_address_t bssid[0];
+} __attribute__((__packed__)) em_trigger_probe_req_t;
+
+typedef struct {
+    mac_address_t ruid;
+    unsigned char bss_flags;
+    unsigned char bf_bss_capabilities[9];
+    unsigned char sta_flags;
+    unsigned char bf_sta_capabilities[9];
+    unsigned char num_data_types;
+    unsigned int data_types[0];
+} __attribute__((__packed__)) em_sensing_radio_cap_t;
+
+typedef struct {
+    unsigned char num_radio;
+    em_sensing_radio_cap_t radios[0];
+} __attribute__((__packed__)) em_sensing_cap_t;
+
+typedef struct {
+    mac_address_t agent_sta_mac_addr;
+    unsigned char reserved[4];
+} __attribute__((__packed__)) em_agent_sta_iface_entry_t;
+
+typedef struct {
+    mac_address_t ruid;
+    unsigned char num_sta;
+    em_agent_sta_iface_entry_t agent_sta[0];
+} __attribute__((__packed__)) em_agent_sta_iface_radio_t;
+
+typedef struct {
+    unsigned char num_radio;
+    em_agent_sta_iface_radio_t radios[0];
+} __attribute__((__packed__)) em_agent_sta_iface_t;
 
 typedef enum {
     em_tlv_type_radio_capability = 0x0013,
@@ -2340,6 +2511,14 @@ typedef enum {
     em_state_ctrl_bsta_cap_pending,
     em_state_ctrl_topo_publish_pending,
     em_state_ctrl_unassoc_sta_link_metrics_pending, 
+    em_state_ctrl_layer3_path_setup_pending,
+    em_state_ctrl_layer3_path_configured,
+    em_state_ctrl_sensing_exchange_pending,
+    em_state_ctrl_sensing_exchange_configured,
+    em_state_agent_layer3_path_setup_pending,
+    em_state_agent_layer3_path_configured,
+    em_state_agent_sensing_exchange_pending,
+    em_state_agent_sensing_exchange_configured,
 
     em_state_max,
 } em_state_t;
@@ -2394,6 +2573,14 @@ typedef enum {
     em_cmd_type_get_link_quality_report,
     em_cmd_type_unassoc_sta_query,
     em_cmd_type_unassoc_sta_result,
+    em_cmd_type_sensing_capabilities,
+    em_cmd_type_sensing_agent_sta,
+    em_cmd_type_sensing_layer3_path,
+    em_cmd_type_sensing_exchange,
+    em_cmd_type_sensing_mq,
+    em_cmd_type_sensing_probe,
+    em_cmd_type_trigger_probe,
+    em_cmd_type_layer3_path_setup,
 
     em_cmd_type_max,
 } em_cmd_type_t;

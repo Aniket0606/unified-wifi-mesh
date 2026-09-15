@@ -992,6 +992,16 @@ public:
 	 * before calling this function.
 	 */
 	void ap_mld_config_rsp();
+	void sensing_exchange_req();
+	void sensing_exchange_rsp();
+	void layer3_path_setup_req();
+	void layer3_path_setup_rsp();
+	void agent_sta_iface_config_req();
+	void agent_sta_iface_config_rprt();
+	void sensing_mq_req();
+	void sensing_mq_rsp();
+	void trigger_probe_req();
+	void trigger_probe_req_rsp();
     
 	/**!
 	 * @brief Acknowledges the receipt of a message in the i1905 protocol.

@@ -423,7 +423,7 @@ bus_error_t em_ctrl_t::cmd_unassocstalinkmetricsquery(const char *method_name, c
     mac_addr_str_t mac_str;
     char *json_buff = NULL;
     size_t json_len = 0;
-    bus_error_t rc;
+    bus_error_t rc = bus_error_invalid_input;
 
     param = (name ? strrchr(name, '.') : NULL);
     if (param == NULL) {
@@ -680,7 +680,7 @@ bus_error_t em_ctrl_t::cmd_steerwifibh(const char *method_name, const bus_data_p
     mac_addr_str_t mac_str;
     char *json_buff = NULL;
     size_t json_len = 0;
-    bus_error_t rc;
+    bus_error_t rc = bus_error_invalid_input;
 
     param = strrchr(name, '.');
     if (param == NULL) {
@@ -4508,6 +4508,7 @@ void dm_easy_mesh_ctrl_t::init_tables()
     dm_sta_list_t::init();
     dm_policy_list_t::init();
     dm_scan_result_list_t::init();
+    m_sensing_db_tables.init();
 }
 
 int dm_easy_mesh_ctrl_t::load_net_ssid_table()
@@ -5357,7 +5358,7 @@ bus_error_t dm_easy_mesh_ctrl_t::device_get_inner(char *event_name, raw_data_t *
     char val_str[MAX_EM_BUFF_SZ] = { 0 };
     char instance[MAX_INSTANCE_LEN] = { 0 };
     bool is_num;
-    bus_error_t rc;
+    bus_error_t rc = bus_error_invalid_input;
 
     if (!name || !p_data) {
         return bus_error_invalid_input;
@@ -5427,12 +5428,12 @@ bus_error_t dm_easy_mesh_ctrl_t::device_get_inner(char *event_name, raw_data_t *
         while (pi != NULL && count < dm->m_num_policy) {
             if(pi->m_policy.id.type == em_policy_id_type_steering_btm) {
                 const size_t n = static_cast<size_t>(pi->m_policy.num_sta);
-                std::vector<em_short_string_t> BTMSteeringDisallowed(n);
+                std::vector<std::array<char, sizeof(em_short_string_t)>> BTMSteeringDisallowed(n);
                 for (size_t index = 0; index < n; index++) {
 			const std::string mac = util::mac_to_string(pi->m_policy.sta_mac[index]);
-			std::snprintf(BTMSteeringDisallowed[index], sizeof(em_short_string_t), "%s", mac.c_str());
+			std::snprintf(BTMSteeringDisallowed[index].data(), sizeof(em_short_string_t), "%s", mac.c_str());
                 }
-                dm_ctrl->fill_comma_sep(BTMSteeringDisallowed.data(), static_cast<size_t>(n), val_str);
+                dm_ctrl->fill_comma_sep(reinterpret_cast<em_short_string_t *>(BTMSteeringDisallowed.data()), static_cast<size_t>(n), val_str);
                 rc = dm_ctrl->raw_data_set(p_data, val_str);
                 break;
             }
@@ -5477,13 +5478,13 @@ bus_error_t dm_easy_mesh_ctrl_t::device_get_inner(char *event_name, raw_data_t *
         }
     } else if (strcmp(param, "BackhaulDownMACAddress") == 0) {
         const size_t n = static_cast<size_t>(di->num_backhaul_down_mac);
-        std::vector<em_short_string_t> tmp(n);
+        std::vector<std::array<char, sizeof(em_short_string_t)>> tmp(n);
 
         for (size_t i = 0; i < n; i++) {
-            std::strncpy(tmp[i], di->backhaul_down_mac[i], sizeof(tmp[i]) - 1);
-            tmp[i][sizeof(tmp[i]) - 1] = '\0';
+            std::strncpy(tmp[i].data(), di->backhaul_down_mac[i], tmp[i].size() - 1);
+            tmp[i][tmp[i].size() - 1] = '\0';
         }
-        dm_ctrl->fill_comma_sep(tmp.data(), n, val_str);
+        dm_ctrl->fill_comma_sep(reinterpret_cast<em_short_string_t *>(tmp.data()), n, val_str);
         rc = dm_ctrl->raw_data_set(p_data, val_str);
     } else if (strcmp(param, "BackhaulPHYRate") == 0) {
         rc = dm_ctrl->raw_data_set(p_data, di->backhaul_phyrate);
@@ -5635,13 +5636,13 @@ bus_error_t dm_easy_mesh_ctrl_t::device_tget_inner(char *event_name, raw_data_t 
             dm_ctrl->property_append_tail(&property, root, idx, "BackhaulMACAddress", di->backhaul_mac.mac);
         }
         const size_t n = static_cast<size_t>(di->num_backhaul_down_mac);
-        std::vector<em_short_string_t> tmp(n);
+        std::vector<std::array<char, sizeof(em_short_string_t)>> tmp(n);
 
         for (size_t i = 0; i < n; i++) {
-            std::strncpy(tmp[i], di->backhaul_down_mac[i], sizeof(tmp[i]) - 1);
-            tmp[i][sizeof(tmp[i]) - 1] = '\0';
+            std::strncpy(tmp[i].data(), di->backhaul_down_mac[i], tmp[i].size() - 1);
+            tmp[i][tmp[i].size() - 1] = '\0';
         }
-        dm_ctrl->fill_comma_sep(tmp.data(), n, val_str);
+        dm_ctrl->fill_comma_sep(reinterpret_cast<em_short_string_t *>(tmp.data()), n, val_str);
         dm_ctrl->property_append_tail(&property, root, idx, "BackhaulDownMACAddress", val_str);
         if (memcmp(di->backhaul_mac.mac, ZERO_MAC_ADDR, sizeof(ZERO_MAC_ADDR)) == 0) {
             dm_ctrl->property_append_tail(&property, root, idx, "BackhaulALID", "");
@@ -7365,7 +7366,7 @@ bus_error_t dm_easy_mesh_ctrl_t::bss_get_inner(char *event_name, raw_data_t *p_d
     char instance[MAX_INSTANCE_LEN] = { 0 };
     bool is_num;
     int radio_instance = 0, bss_instance = 0;
-    bus_error_t rc;
+    bus_error_t rc = bus_error_invalid_input;
 
     if (!name || !p_data) {
         return bus_error_invalid_input;
@@ -8851,11 +8852,13 @@ bus_error_t dm_easy_mesh_ctrl_t::bstamld_get_inner(char *event_name, raw_data_t 
         return bus_error_destination_not_found;
     }
     em_bsta_mld_info_t &bsmi = dm->get_bsta_mld_info();
+    const unsigned char *mld_mac = bsmi.mac_addr_valid ? bsmi.mac_addr : ZERO_MAC_ADDR;
+    const unsigned char *ap_mld_mac = bsmi.ap_mld_mac_addr_valid ? bsmi.ap_mld_mac_addr : ZERO_MAC_ADDR;
 
     if (strcmp(param, "MLDMACAddress") == 0) {
-        rc = dm_ctrl->raw_data_set(p_data, bsmi.mac_addr_valid ? bsmi.mac_addr : ZERO_MAC_ADDR);
+        rc = dm_ctrl->raw_data_set(p_data, mld_mac);
     } else if (strcmp(param, "BSSID") == 0) {
-        rc = dm_ctrl->raw_data_set(p_data, bsmi.ap_mld_mac_addr_valid ? bsmi.ap_mld_mac_addr : ZERO_MAC_ADDR);
+        rc = dm_ctrl->raw_data_set(p_data, ap_mld_mac);
     } else if (strcmp(param, "AffiliatedbSTAList") == 0) {
         char maclist_str[MAX_MACLIST_STRLEN] = { 0 };
         mac_address_t maclist[MAX_MACLIST_ITEMS];
@@ -9031,7 +9034,11 @@ int dm_easy_mesh_ctrl_t::init(const char *data_model_path, em_mgr_t *mgr)
 
     int pipefd[2];
     int rcp;
+#if defined(__linux__)
     rcp = pipe2(pipefd, O_DIRECT);
+#else
+    rcp = pipe(pipefd);
+#endif
     if (rcp == -1) {
         return -1;
     }

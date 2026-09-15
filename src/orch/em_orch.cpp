@@ -493,7 +493,7 @@ bool em_orch_t::is_cmd_type_in_progress(em_bus_event_t *evt)
 
     snprintf(key, sizeof(em_short_string_t), "%d", type);
 
-    if ((type == em_cmd_type_cfg_renew )) {
+    if (type == em_cmd_type_cfg_renew) {
         return is_cmd_in_progress_by_radio(evt);
     } else if ((type == em_cmd_type_em_config) ||
                (type == em_cmd_type_set_policy)) {

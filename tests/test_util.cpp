@@ -120,6 +120,7 @@ TEST_F(EmUtilByteOrderTest, TestDerefNetUint16) {
     // We should be able to recover host_val16 (host order) from net_val16 (net order) with this function.
     EXPECT_EQ(util::deref_net_uint16_to_host(&net_val16), host_val16);
     // GCC/G++ emits a warning that we may have an unaligned pointer value. Disable that as it's intended here. 
+    #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Waddress-of-packed-member"
     // We should be able to recover the correct value from a misaligned struct.
     EXPECT_EQ(util::deref_net_uint16_to_host(&(bad_const_struct.data16)), 0x3456);
@@ -140,9 +141,11 @@ TEST_F(EmUtilByteOrderTest, TestSetNetUint16) {
     EXPECT_EQ(mut_val16, net_val16);
 
     // GCC/G++ emits a warning that we may have an unaligned pointer value. Disable that as it's intended here. 
+    #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Waddress-of-packed-member"
     // We should be able to set the correct value in a misaligned struct.
-    EXPECT_TRUE(util::set_net_uint16_from_host(host_val16, &(bad_mut_struct.data16)));
+    void *misaligned_data16 = reinterpret_cast<unsigned char *>(&bad_mut_struct) + 1;
+    EXPECT_TRUE(util::set_net_uint16_from_host(host_val16, misaligned_data16));
     #pragma GCC diagnostic pop
     EXPECT_EQ(bad_mut_struct.data16, net_val16);
 }

@@ -115,7 +115,7 @@ int em_crypto_t::init()
     BIGNUM *priv_key = NULL, *pub_key = NULL;
 
     RAND_bytes(m_crypto_info.e_nonce, sizeof(em_nonce_t));
-    uuid_generate(m_crypto_info.e_uuid);
+    RAND_bytes(m_crypto_info.e_uuid, sizeof(uuid_t));
 
     BIGNUM *p = NULL;
     BIGNUM *g = NULL;
@@ -1082,7 +1082,7 @@ uint8_t em_crypto_t::compute_secret_internal(BIGNUM *p, BIGNUM *g, BIGNUM *bn_pr
         goto cleanup;
     }
 
-    *shared_secret = (uint8_t*)OPENSSL_malloc(*secret_len);
+    *shared_secret = static_cast<uint8_t *>(OPENSSL_malloc(*secret_len));
 
     if (!*shared_secret) {
         printf("%s:%d shared secret malloc failed\n", __func__, __LINE__);

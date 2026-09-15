@@ -6496,3 +6496,54 @@ TEST(em_tlv_member_t, em_tlv_member_t_destructor_invoked_valid_instance) {
     std::cout << "Instance went out of scope. Destructor ~em_tlv_member_t() should have been invoked with no errors, memory leaks, or crashes." << std::endl;
     std::cout << "Exiting em_tlv_member_t_destructor_invoked_valid_instance test" << std::endl;
 }
+
+namespace {
+
+bool validate_sensing_message(em_msg_type_t message_type, em_tlv_type_t tlv_type,
+    const unsigned char *value, unsigned int value_length)
+{
+    unsigned char buffer[256] = {0};
+    unsigned int length = sizeof(em_raw_hdr_t) + sizeof(em_cmdu_t);
+    em_msg_t::add_tlv(buffer + length, &length, tlv_type,
+        const_cast<unsigned char *>(value), value_length);
+    em_msg_t::add_tlv(buffer + length, &length, em_tlv_type_eom, nullptr, 0U);
+    em_msg_t message(message_type, em_profile_type_3, buffer, length);
+    char *errors[EM_MAX_TLV_MEMBERS] = {nullptr};
+    return message.validate(errors);
+}
+
+TEST(em_msg_t, sensing_message_requirements_accept_expected_tlv)
+{
+    const unsigned char value[31] = {0};
+    EXPECT_TRUE(validate_sensing_message(em_msg_type_sensing_exchange_req,
+        em_tlv_type_sensing_exchange_req, value, sizeof(value)));
+    EXPECT_TRUE(validate_sensing_message(em_msg_type_sensing_exchange_rsp,
+        em_tlv_type_sensing_exchange_rsp, value, 8U));
+    EXPECT_TRUE(validate_sensing_message(em_msg_type_layer3_path_setup_req,
+        em_tlv_type_layer3_path_setup_req, value, 25U));
+    EXPECT_TRUE(validate_sensing_message(em_msg_type_layer3_path_setup_rsp,
+        em_tlv_type_layer3_path_setup_rsp, value, 24U));
+    EXPECT_TRUE(validate_sensing_message(em_msg_type_agent_sta_iface_config_req,
+        em_tlv_type_agent_sta_iface, value, 4U));
+    EXPECT_TRUE(validate_sensing_message(em_msg_type_agent_sta_iface_config_rprt,
+        em_tlv_type_agent_sta_iface, value, 4U));
+    EXPECT_TRUE(validate_sensing_message(em_msg_type_sensing_mq_req,
+        em_tlv_type_sensing_mq_req, value, 15U));
+    EXPECT_TRUE(validate_sensing_message(em_msg_type_sensing_mq_rsp,
+        em_tlv_type_sensing_mq_rsp, value, 16U));
+    EXPECT_TRUE(validate_sensing_message(em_msg_type_trigger_probe_req,
+        em_tlv_type_trigger_probe_req, value, 10U));
+    EXPECT_TRUE(validate_sensing_message(em_msg_type_trigger_probe_req_rsp,
+        em_tlv_type_status_code, value, 5U));
+}
+
+TEST(em_msg_t, sensing_message_requirements_reject_missing_or_wrong_tlv)
+{
+    const unsigned char value[31] = {0};
+    EXPECT_FALSE(validate_sensing_message(em_msg_type_sensing_mq_req,
+        em_tlv_type_sensing_mq_rsp, value, 16U));
+    EXPECT_FALSE(validate_sensing_message(em_msg_type_sensing_exchange_rsp,
+        em_tlv_type_sensing_exchange_req, value, sizeof(value)));
+}
+
+} // namespace

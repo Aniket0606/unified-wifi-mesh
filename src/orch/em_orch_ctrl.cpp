@@ -302,6 +302,28 @@ bool em_orch_ctrl_t::is_em_ready_for_orch_fini(em_cmd_t *pcmd, em_t *em)
             }
             break;
 
+        case em_cmd_type_layer3_path_setup:
+            if (em->get_state() == em_state_ctrl_configured ||
+                em->get_state() == em_state_ctrl_layer3_path_configured) {
+                em->set_state(em_state_ctrl_layer3_path_setup_pending);
+                return true;
+            }
+            break;
+
+        case em_cmd_type_sensing_exchange:
+        case em_cmd_type_sensing_mq:
+        case em_cmd_type_trigger_probe:
+            if (em->is_al_interface_em()) {
+                queue_push(pcmd->m_em_candidates, em);
+            }
+            break;
+
+        case em_cmd_type_sensing_agent_sta:
+            if (em->is_al_interface_em()) {
+                queue_push(pcmd->m_em_candidates, em);
+            }
+            break;
+
         default:
             break;
     }
@@ -771,6 +793,13 @@ unsigned int em_orch_ctrl_t::build_candidates(em_cmd_t *pcmd)
 		    queue_push(pcmd->m_em_candidates, em);
 		    count++;
 		}		
+		break;
+
+        case em_cmd_type_layer3_path_setup:
+            if (em->is_al_interface_em()) {
+                queue_push(pcmd->m_em_candidates, em);
+                count++;
+            }
 		break;
 	    default:
 		break;

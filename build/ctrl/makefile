@@ -47,10 +47,19 @@ INCLUDEDIRS += -I$(AL_SAP_HOME)/include
 endif
 INDLUDEDIRS += -I$(WIFI_CJSON)
 
-CXX_COMMON_FLAGS = -Wall -Wextra -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-aliasing -fno-common -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie -ftrapv -Wformat=2 -Wformat-security -Wuninitialized -Winit-self -Wsign-conversion -Wno-unused-parameter -fsanitize=address -fsanitize=undefined -Werror #-Wconversion -O2 -Weffc++
-CXX_SPECIFIC_FLAGS = -Wctor-dtor-privacy -Wold-style-cast -Woverloaded-virtual -Wsign-promo -Wstrict-null-sentinel -std=c++17
+CXX_COMMON_FLAGS = -Wall -Wextra -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-aliasing -fno-common -fstack-protector-strong -fPIE -ftrapv -Wformat=2 -Wformat-security -Wuninitialized -Winit-self -Wsign-conversion -Wno-unused-parameter -fsanitize=address -fsanitize=undefined -Werror #-Wconversion -O2 -Weffc++
+CXX_SPECIFIC_FLAGS = -Wctor-dtor-privacy -Wold-style-cast -Woverloaded-virtual -Wsign-promo -std=c++17
+ifneq ($(shell uname -s),Darwin)
+CXX_COMMON_FLAGS += -D_FORTIFY_SOURCE=2
+CXX_SPECIFIC_FLAGS += -Wstrict-null-sentinel
+else
+CXX_COMMON_FLAGS += -Wno-error=extern-c-compat -Wno-error=sign-conversion -Wno-error=sign-compare -Wno-error=self-assign-overloaded -Wno-error=inconsistent-missing-override -Wno-error=deprecated-declarations -Wno-error=deprecated-copy-with-user-provided-copy -Wno-error=unused-but-set-variable -Wno-error=vla-extension -Wno-error=non-pod-varargs -Wno-error=unused-private-field -Wno-error=varargs -Wno-error=format-nonliteral -Wno-error=dynamic-class-memaccess -Wno-error=unterminated-string-initialization -Wno-error=conditional-type-mismatch -Wno-error=cast-qual -Wno-error=implicit-enum-enum-cast -Wno-error=gnu-pointer-arith -Wno-error=incompatible-pointer-types-discards-qualifiers -Wno-error=unused-variable -Wno-error=incompatible-function-pointer-types
+endif
 
 CXXFLAGS += $(INCLUDEDIRS) -g $(CXX_COMMON_FLAGS) $(CXX_SPECIFIC_FLAGS) `mariadb_config --include`
+ifeq ($(shell uname -s),Darwin)
+CXXFLAGS += -I$(shell brew --prefix mariadb)/include
+endif
 CFLAGS += $(INCLUDEDIRS) -g $(CXX_COMMON_FLAGS)
 
 ifeq ($(WITH_SAP), 1)
@@ -67,14 +76,30 @@ CXXFLAGS += -DTESTING
 endif
 
 LDFLAGS += $(LIBDIRS) $(LIBS) -fsanitize=address -fsanitize=undefined
+ifneq ($(shell uname -s),Darwin)
+LDFLAGS += -pie
+endif
 LIBDIRS = \
 	-L$(INSTALLDIR)/lib \
 	-L$(ONEWIFI_HOME)/install/lib/
+#Aniket revisit this code and remove it.
+ifeq ($(shell uname -s),Darwin)
+LIBDIRS += -L$(shell brew --prefix cjson)/lib \
+	-L$(shell brew --prefix openssl@3)/lib \
+	-L$(shell brew --prefix mariadb)/lib \
+	-L$(shell brew --prefix libev)/lib
+endif
+#end point
 ifeq ($(WITH_SAP), 1)
 LIBDIRS += -L$(AL_SAP_HOME)/
 endif
 
 LIBS = -lm -lpthread -ldl -luuid -lcjson -lssl -lcrypto -lhebus `mariadb_config --libs`
+#Aniket revisit this code and remove it.
+ifeq ($(shell uname -s),Darwin)
+LIBS := $(filter-out -luuid -lhebus,$(LIBS))
+endif
+#end point
 ifeq ($(WITH_SAP), 1)
 LIBS += -lalsap
 endif
@@ -83,7 +108,7 @@ GENERIC_SOURCES = $(ONEWIFI_HOME)/source/utils/collection.c \
 	$(ONEWIFI_EM_SRC)/util_crypto/aes_siv.c \
 	$(ONEWIFI_HOME)/lib/common/util.c \
     $(ONEWIFI_HOME)/source/platform/linux/bus.c \
-
+	$(wildcard $(ONEWIFI_HOME)/source/platform/linux/he_bus/src/*.c)
 
 CTRL_SOURCES = $(wildcard $(ONEWIFI_EM_SRC)/em/*.cpp) \
     	$(wildcard $(ONEWIFI_EM_SRC)/em/config/*.cpp) \
@@ -95,6 +120,7 @@ CTRL_SOURCES = $(wildcard $(ONEWIFI_EM_SRC)/em/*.cpp) \
     	$(wildcard $(ONEWIFI_EM_SRC)/em/metrics/*.cpp) \
     	$(wildcard $(ONEWIFI_EM_SRC)/em/steering/*.cpp) \
     	$(wildcard $(ONEWIFI_EM_SRC)/em/policy_cfg/*.cpp) \
+		$(wildcard $(ONEWIFI_EM_SRC)/em/sensing/*.cpp) \
 	$(wildcard $(ONEWIFI_EM_SRC)/em/crypto/*.cpp) \
 	$(wildcard $(ONEWIFI_EM_SRC)/cmd/*.cpp) \
 	$(wildcard $(ONEWIFI_EM_SRC)/ctrl/*.cpp) \
@@ -123,10 +149,17 @@ $(CTRL_OBJECTS): %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -o $@ -c $< 
 
 # Make sure $(NVRAM_DIR) exists
+#Aniket revisit this code and remove it.
+ifeq ($(shell uname -s),Darwin)
+$(NVRAM_DIR):
+	mkdir -p "$@"
+else
+#Aniket end point
 $(NVRAM_DIR):
 	@if [ ! -d "$@" ]; then \
         sudo mkdir -p "$@" && sudo chmod 777 "$@"; \
     fi
+endif
 
 #copy the certificate and key to /nvram
 $(NVRAM_DIR)/test_cert.crt: $(EM_CERT_SRC) | $(NVRAM_DIR)
@@ -168,7 +201,7 @@ TEST_OBJECTS = $(TEST_SOURCES:.cpp=.o)
 TEST_CXXFLAGS = $(CXXFLAGS) -I/usr/include -I/usr/local/include -DTESTING
 
 # Test target
-test: check_test_files install_gtest $(TEST_OBJECTS)
+test: check_test_files install_gtest $(TEST_OBJECTS) $(CERT_TARGETS)
 ifeq ($(WITH_SAP), 1)
 	@$(MAKE) -C $(AL_SAP_HOME)
 endif

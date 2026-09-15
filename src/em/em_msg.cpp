@@ -605,6 +605,7 @@ void em_msg_t::topo_resp()
     m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_device_bridging_cap, optional, "table 6-11 of IEEE-1905-1", 11);
     m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_non1905_neigh_list, optional, "table 6-14 of IEEE-1905-1", 15);
     m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_1905_neigh_list, optional, "table 6-15 of IEEE-1905-1", 15);
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_agent_sta_iface, optional, "17.2.116 of Wi-Fi Easy Mesh 6.1", 4);
 }
 
 
@@ -652,6 +653,9 @@ void em_msg_t::ap_cap_rprt()
     m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_metric_cltn_interval, (m_profile > em_profile_type_1) ? mandatory:bad, "17.2.59 of Wi-Fi Easy Mesh 5.0", 7);
     m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_device_inventory, optional, "17.2.76 of Wi-Fi Easy Mesh 5.0", 270); 
     m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_ap_radio_advanced_cap, optional, "17.2.52 of Wi-Fi Easy Mesh 5.0", 9);
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_layer3_transport_cap, optional, "17.2.110 of Wi-Fi Easy Mesh 6.1", 4);
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_sensing_cap, optional, "17.2.111 of Wi-Fi Easy Mesh 6.1", 4);
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_agent_sta_iface, optional, "17.2.116 of Wi-Fi Easy Mesh 6.1", 4);
 }
 
 void em_msg_t::policy_config_req()
@@ -970,6 +974,57 @@ void em_msg_t::ap_mld_config_rsp()
     m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_ap_mld_config, mandatory, "17.2.96 of Wi-Fi Easy Mesh 6.0", 4);
 }
 
+void em_msg_t::sensing_exchange_req()
+{
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_sensing_exchange_req, mandatory, "17.2.112 of Wi-Fi Easy Mesh 6.1", 31);
+}
+
+void em_msg_t::sensing_exchange_rsp()
+{
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_sensing_exchange_rsp, mandatory, "17.2.113 of Wi-Fi Easy Mesh 6.1", 8);
+}
+
+void em_msg_t::layer3_path_setup_req()
+{
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_layer3_path_setup_req, mandatory, "17.2.114 of Wi-Fi Easy Mesh 6.1", 25);
+}
+
+void em_msg_t::layer3_path_setup_rsp()
+{
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_layer3_path_setup_rsp, mandatory, "17.2.115 of Wi-Fi Easy Mesh 6.1", 24);
+}
+
+void em_msg_t::agent_sta_iface_config_req()
+{
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_agent_sta_iface, mandatory, "17.2.116 of Wi-Fi Easy Mesh 6.1", 4);
+}
+
+void em_msg_t::agent_sta_iface_config_rprt()
+{
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_agent_sta_iface, mandatory, "17.2.116 of Wi-Fi Easy Mesh 6.1", 4);
+}
+
+void em_msg_t::sensing_mq_req()
+{
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_sensing_mq_req, mandatory, "17.2.117 of Wi-Fi Easy Mesh 6.1", 15);
+}
+
+void em_msg_t::sensing_mq_rsp()
+{
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_sensing_mq_rsp, mandatory, "17.2.118 of Wi-Fi Easy Mesh 6.1", 16);
+}
+
+void em_msg_t::trigger_probe_req()
+{
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_trigger_probe_req, mandatory, "17.2.119 of Wi-Fi Easy Mesh 6.1", 10);
+}
+
+void em_msg_t::trigger_probe_req_rsp()
+{
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_status_code, mandatory, "17.2.63 of Wi-Fi Easy Mesh 6.1", 5);
+    m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_trigger_probe_req, optional, "17.2.119 of Wi-Fi Easy Mesh 6.1", 10);
+}
+
 void em_msg_t::i1905_ack()
 {
     m_tlv_member[m_num_tlv++] = em_tlv_member_t(em_tlv_type_error_code, optional, "17.2.36 of Wi-Fi Easy Mesh 5.0", 10);
@@ -1270,6 +1325,46 @@ em_msg_t::em_msg_t(em_msg_type_t type, em_profile_type_t profile, unsigned char 
         
         case em_msg_type_ap_mld_config_resp:
             ap_mld_config_rsp();
+            break;
+
+        case em_msg_type_sensing_exchange_req:
+            sensing_exchange_req();
+            break;
+
+        case em_msg_type_sensing_exchange_rsp:
+            sensing_exchange_rsp();
+            break;
+
+        case em_msg_type_layer3_path_setup_req:
+            layer3_path_setup_req();
+            break;
+
+        case em_msg_type_layer3_path_setup_rsp:
+            layer3_path_setup_rsp();
+            break;
+
+        case em_msg_type_agent_sta_iface_config_req:
+            agent_sta_iface_config_req();
+            break;
+
+        case em_msg_type_agent_sta_iface_config_rprt:
+            agent_sta_iface_config_rprt();
+            break;
+
+        case em_msg_type_sensing_mq_req:
+            sensing_mq_req();
+            break;
+
+        case em_msg_type_sensing_mq_rsp:
+            sensing_mq_rsp();
+            break;
+
+        case em_msg_type_trigger_probe_req:
+            trigger_probe_req();
+            break;
+
+        case em_msg_type_trigger_probe_req_rsp:
+            trigger_probe_req_rsp();
             break;
 
         case em_msg_type_1905_ack:

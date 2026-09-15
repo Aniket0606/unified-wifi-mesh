@@ -267,15 +267,14 @@ void dm_bss_t::encode(cJSON *obj, bool summary)
     cJSON_AddItemToObject(obj, "BackhaulAKMsAllowed", backhaul_akmsArray);
 
     // Add vendor elements (ExtraVendorIEs) as hex string
-    char vendor_ies[2 * m_bss_info.vendor_elements_len + 1] = {0};
+    std::vector<char> vendor_ies(2 * m_bss_info.vendor_elements_len + 1, '\0');
     if (m_bss_info.vendor_elements_len > 0) {
-        memset(vendor_ies, 0, sizeof(vendor_ies));
         for (unsigned int i = 0; i < m_bss_info.vendor_elements_len; i++) {
             unsigned int offset = i * 2;
-            snprintf(vendor_ies + offset, sizeof(vendor_ies) - offset, "%02x", m_bss_info.vendor_elements[i]);
+            snprintf(vendor_ies.data() + offset, vendor_ies.size() - offset, "%02x", m_bss_info.vendor_elements[i]);
         }
     }
-    cJSON_AddStringToObject(obj, "ExtraVendorIEs", vendor_ies);
+    cJSON_AddStringToObject(obj, "ExtraVendorIEs", vendor_ies.data());
 
 }
 

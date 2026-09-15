@@ -43,7 +43,11 @@ void tr_181_t::init(void* ptr)
     int pipefd[2];
 	int rcp;
 
-	rcp = pipe2(pipefd, O_DIRECT);
+#if defined(__linux__)
+    rcp = pipe2(pipefd, O_DIRECT);
+#else
+    rcp = pipe(pipefd);
+#endif
 	if (rcp == -1) {
 		return;
 	}
@@ -324,7 +328,7 @@ int tr_181_t::wfa_set_bus_callbackfunc_pointers(const char *full_namespace, bus_
         ELEMENT(DE_BSTACFG_NSTR,           CALLBACK_GETTER(bstacfg_get)),
 
         ELEMENT(DEVICE_WIFI_DATAELEMENTS_NETWORK_TOPOLOGY,              CB(NULL, NULL, NULL, NULL, NULL, NULL)),
-        ELEMENT(DEVICE_WIFI_DATAELEMENTS_NETWORK_NODE_SYNC,             CB(.get_handler = get_node_sync, .set_handler = set_node_sync, NULL, NULL, NULL, NULL)),
+        ELEMENT(DEVICE_WIFI_DATAELEMENTS_NETWORK_NODE_SYNC,             CB(get_node_sync, set_node_sync, NULL, NULL, NULL, NULL)),
         //ELEMENT(DEVICE_WIFI_DATAELEMENTS_NETWORK_NODE_CFG_POLICY,       CB(.set_handler = policy_config))
     };
 

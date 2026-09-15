@@ -26,12 +26,15 @@ BASE = $(shell pwd)
 
 ONEWIFI_EM_HOME = $(BASE)/../../
 ONEWIFI_HOME = $(BASE)/../../../OneWifi/
-ONEWIFI_HAL_INTF_HOME = $(BASE)/../../../halinterface/include
+ONEWIFI_HAL_INTF_HOME = $(ONEWIFI_EM_HOME)/../rdkb-halif-wifi/include
 ONEWIFI_BUS_LIB_HOME = $(ONEWIFI_HOME)/lib/bus
 ONEWIFI_EM_SRC = $(ONEWIFI_EM_HOME)/src
 INSTALLDIR = $(ONEWIFI_EM_HOME)/install
 AL_SAP_HOME = $(ONEWIFI_EM_HOME)/src/al-sap
 NVRAM_DIR ?= /nvram
+ifeq ($(shell uname -s),Darwin)
+NVRAM_DIR = /tmp/unified-wifi-mesh-nvram
+endif
 OBJDIR = obj
 CXX ?= g++
 CC ?= gcc

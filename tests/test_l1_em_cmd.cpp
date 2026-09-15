@@ -3351,11 +3351,6 @@ TEST(em_cmd_t, get_radio_interface_valid_lastindex) {
 TEST(em_cmd_t, get_radio_interface_index_out_of_range) {
     std::cout << "Entering get_radio_interface_index_out_of_range test" << std::endl;
     em_cmd_t cmd;
-    unsigned char mac[6] = {0x1A, 0x1B, 0x2C, 0x3D, 0x4E, 0x5A};
-    memcpy(cmd.m_data_model.m_radio[4].m_radio_info.intf.mac, mac, sizeof(mac));
-    cmd.m_data_model.m_radio[4].m_radio_info.intf.media = em_media_type_ieee80211n_24;
-    const char *ifaceName0 = "TestInterface0";
-    strncpy(cmd.m_data_model.m_radio[4].m_radio_info.intf.name, ifaceName0, sizeof(cmd.m_data_model.m_radio[0].m_radio_info.intf.name) - 1);
     unsigned int index = 4;
     std::cout << "Invoking get_radio_interface with index: " << index << std::endl;
     em_interface_t* retrievedIface = cmd.get_radio_interface(index);

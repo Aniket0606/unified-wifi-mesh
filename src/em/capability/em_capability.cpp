@@ -183,6 +183,32 @@ int em_capability_t::send_ap_cap_report_msg(unsigned char *dst, unsigned short m
     }
     em_radios.clear();
 
+    em_t *sensing_em = dynamic_cast<em_t *>(this);
+    if (sensing_em != nullptr && sensing_em->sensing_supported()) {
+        tlv = reinterpret_cast<em_tlv_t *>(tmp);
+        tlv->type = em_tlv_type_layer3_transport_cap;
+        sz = sensing_em->create_layer3_transport_capability_tlv(tlv->value);
+        tlv->len = htons(static_cast<uint16_t>(sz));
+        tmp += sizeof(em_tlv_t) + sz;
+        len += static_cast<unsigned int>(sizeof(em_tlv_t) + sz);
+
+        tlv = reinterpret_cast<em_tlv_t *>(tmp);
+        tlv->type = em_tlv_type_sensing_cap;
+        sz = sensing_em->create_sensing_capability_tlv(tlv->value,
+            sensing_em->get_radio_interface_mac());
+        tlv->len = htons(static_cast<uint16_t>(sz));
+        tmp += sizeof(em_tlv_t) + sz;
+        len += static_cast<unsigned int>(sizeof(em_tlv_t) + sz);
+
+        tlv = reinterpret_cast<em_tlv_t *>(tmp);
+        tlv->type = em_tlv_type_agent_sta_iface;
+        sz = sensing_em->create_agent_sta_interface_capability_tlv(tlv->value,
+            sensing_em->get_radio_interface_mac());
+        tlv->len = htons(static_cast<uint16_t>(sz));
+        tmp += sizeof(em_tlv_t) + sz;
+        len += static_cast<unsigned int>(sizeof(em_tlv_t) + sz);
+    }
+
     // AP Channel Scan capabilities 17.2.38
     tlv = reinterpret_cast<em_tlv_t *>(tmp);
     tlv->type = em_tlv_type_channel_scan_cap;
@@ -1420,7 +1446,7 @@ int em_capability_t::handle_ap_cap_report(unsigned char *buff, unsigned int len)
 
             if ((ht_cap != NULL) && (radio_cap != NULL)){
                 em_radio_cap_info_t *cap_info = radio_cap->get_radio_cap_info();
-                if ((cap_info == NULL)){
+                if (cap_info == NULL){
                     em_printfout("No data Found");
                 }
                 memcpy(&cap_info->ht_cap, ht_cap, sizeof(em_ap_ht_cap_t));
@@ -1444,7 +1470,7 @@ int em_capability_t::handle_ap_cap_report(unsigned char *buff, unsigned int len)
             dm_radio_cap_t *radio_cap = dm->get_radio_cap(vht_cap->ruid);
             if ((vht_cap != NULL) && (radio_cap != NULL)){
                 em_radio_cap_info_t *cap_info = radio_cap->get_radio_cap_info();
-                if ((cap_info == NULL)){
+                if (cap_info == NULL){
                     em_printfout("No data Found");
                     return 0;
                 }
@@ -1459,7 +1485,7 @@ int em_capability_t::handle_ap_cap_report(unsigned char *buff, unsigned int len)
             if ((he_cap != NULL) && (radio_cap != NULL)){
                 em_radio_cap_info_t *cap_info = radio_cap->get_radio_cap_info();
 
-                if ((cap_info == NULL)){
+                if (cap_info == NULL){
                     em_printfout("No data Found");
                     return 0;
                 }
@@ -1514,7 +1540,7 @@ int em_capability_t::handle_ap_cap_report(unsigned char *buff, unsigned int len)
                 dm_radio_cap_t *radio_cap = dm->get_radio_cap(cac->radios[idx].ruid);
                 if (radio_cap != NULL){
                     em_radio_cap_info_t *cap_info = radio_cap->get_radio_cap_info();
-                    if ((cap_info == NULL)){
+                    if (cap_info == NULL){
                         em_printfout("No data Found");
                         return 0;
                     }
@@ -1566,6 +1592,15 @@ int em_capability_t::handle_ap_cap_report(unsigned char *buff, unsigned int len)
                 }
 
                 adv += sizeof(em_ap_radio_advanced_cap_t);
+            }
+        } else if (tlv->type == em_tlv_type_layer3_transport_cap ||
+                   tlv->type == em_tlv_type_sensing_cap) {
+            em_t *sensing_em = dynamic_cast<em_t *>(this);
+            if ((sensing_em != nullptr) &&
+                (sensing_em->handle_sensing_capability_tlv(static_cast<em_tlv_type_t>(tlv->type), tlv->value,
+                    sizeof(em_tlv_t) + ntohs(tlv->len)) != 0)) {
+                em_printfout("Invalid Sensing capability TLV");
+                return -1;
             }
         } else if (tlv->type == em_tlv_type_vendor_specific) {
             em_vendor_specific_v_t *vendor_tlv = reinterpret_cast<em_vendor_specific_v_t *> (tlv->value);

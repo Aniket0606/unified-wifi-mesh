@@ -962,7 +962,7 @@ bool ec_ctrl_configurator_t::handle_auth_response(ec_frame_t *frame, size_t len,
 
     ASSERT_NOT_NULL(r_auth_prime, false, "%s:%d: Failed to compute R-auth'\n", __func__, __LINE__);
 
-    if (memcmp(r_auth_prime, resp_auth_tag, sizeof(resp_auth_tag) != 0)) {
+    if (memcmp(r_auth_prime, resp_auth_tag, sizeof(resp_auth_tag)) != 0) {
         em_printfout("R-auth' does not match Responder Auth Tag");
         free(r_auth_prime);
         /*

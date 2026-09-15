@@ -808,7 +808,7 @@ int em_policy_cfg_t::handle_policy_cfg_req(unsigned char *buff, unsigned int len
                 unsigned char *qos_data = tlv->value;
                 size_t qos_offset = 0;
 
-                unsigned char mscs_num = qos_data[qos_offset++];
+                unsigned int mscs_num = qos_data[qos_offset++];
                 mscs_num = (mscs_num < EM_MAX_STA_PER_AGENT) ? mscs_num : EM_MAX_STA_PER_AGENT;
                 policy.qos_mgmt_policy[q_cnt].mscs_disallowed_num = mscs_num;
                 for (unsigned int idx = 0; idx < mscs_num; idx++) {
@@ -817,7 +817,7 @@ int em_policy_cfg_t::handle_policy_cfg_req(unsigned char *buff, unsigned int len
                     qos_offset += sizeof(mac_address_t);
                 }
 
-                unsigned char scs_num = qos_data[qos_offset++];
+                unsigned int scs_num = qos_data[qos_offset++];
                 scs_num = (scs_num < EM_MAX_STA_PER_AGENT) ? scs_num : EM_MAX_STA_PER_AGENT;
                 policy.qos_mgmt_policy[q_cnt].scs_disallowed_num = scs_num;
                 for (unsigned int idx = 0; idx < scs_num; idx++) {

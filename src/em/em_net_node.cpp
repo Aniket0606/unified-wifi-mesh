@@ -763,7 +763,7 @@ extern "C" em_network_node_t *get_child_node_at_index(em_network_node_t *node, u
 
 extern "C" void free_network_tree(void *node)
 {
-    return em_net_node_t::free_network_tree((em_network_node_t *)node);
+    return em_net_node_t::free_network_tree(static_cast<em_network_node_t *>(node));
 }
 
 extern "C" void *network_tree_to_json(em_network_node_t *node)
@@ -813,7 +813,7 @@ extern "C" em_network_node_data_type_t get_node_type(em_network_node_t *node)
 
 extern "C" void set_node_type(em_network_node_t *node, int type)
 {
-	node->type = (em_network_node_data_type_t)type;
+    node->type = static_cast<em_network_node_data_type_t>(type);
 }
 
 extern "C" unsigned int get_node_display_position(em_network_node_t *node)
