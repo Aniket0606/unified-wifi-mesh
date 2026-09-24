@@ -4,8 +4,8 @@
 #include <cstring>
 #include <utility>
 
-em_sensing_ll_stub_t::em_sensing_ll_stub_t(bool supported)
-    : m_supported(supported), m_callback()
+em_sensing_ll_stub_t::em_sensing_ll_stub_t(bool supported, bool emit_measurements)
+    : m_supported(supported), m_emit_measurements(emit_measurements), m_callback()
 {
 }
 
@@ -30,7 +30,7 @@ bool em_sensing_ll_stub_t::send_sensing_measurement_request(uint32_t exchange_id
     if (!m_supported || exchange_id == 0U) {
         return false;
     }
-    if (m_callback) {
+    if (m_emit_measurements && m_callback) {
         em_sensing_measurement_event_t event;
         event.exchange_id = exchange_id;
         event.data_type = EM_SENSING_DATA_TYPE_IEEE_CSI;
@@ -92,7 +92,7 @@ bool em_sensing_ll_stub_t::send_qos_null_frame(uint32_t exchange_id, const mac_a
     if (!m_supported || exchange_id == 0U || bssid == nullptr || sta_mac == nullptr) {
         return false;
     }
-    if (m_callback) {
+    if (m_emit_measurements && m_callback) {
         em_sensing_measurement_event_t event;
         event.exchange_id = exchange_id;
         event.data_type = EM_SENSING_DATA_TYPE_IEEE_CSI;

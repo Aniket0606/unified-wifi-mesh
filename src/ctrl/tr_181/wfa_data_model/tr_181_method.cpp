@@ -123,6 +123,30 @@ bus_error_t tr_181_t::unassocstalinkmetricsquery_handler(const char *method_name
     return rc;
 }
 
+bus_error_t tr_181_t::sensing_exchange_handler(const char *method_name,
+    bus_data_prop_t *input_data, bus_data_prop_t *output_data, void *async_handle)
+{
+    if (input_data == nullptr || output_data == nullptr) {
+        return bus_error_invalid_input;
+    }
+    em_ctrl_t *ctrl = em_ctrl_t::get_em_ctrl_instance();
+    if (ctrl == nullptr) {
+        tr_181_t::tr181_set_status_output(output_data, "Failure: controller unavailable");
+        return bus_error_general;
+    }
+    bus_data_prop_t *output_props = nullptr;
+    const bus_error_t result = ctrl->cmd_sensing_exchange(method_name, input_data,
+        &output_props, async_handle);
+    em_printfout("Method='%s' result=%d", method_name ? method_name : "(null)", result);
+    //@TBD Aniket Do we really need to free this memory or bus abstraction handles free this memory ?
+    if (output_props != nullptr) {
+        *output_data = *output_props;
+        output_data->ref_count = 1;
+        free(output_props);
+    }
+    return result;
+}
+
 bus_error_t tr_181_t::steerwifibh_handler(const char *method_name, bus_data_prop_t *input_data,
     bus_data_prop_t *output_data, void *async_handle)
 {

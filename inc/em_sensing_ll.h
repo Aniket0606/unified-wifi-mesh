@@ -84,7 +84,7 @@ public:
 
 class em_sensing_ll_stub_t final : public em_sensing_ll_t {
 public:
-    explicit em_sensing_ll_stub_t(bool supported = true);
+    explicit em_sensing_ll_stub_t(bool supported = true, bool emit_measurements = true);
 
     bool get_capabilities(em_sensing_capability_snapshot_t &capabilities) const override;
     bool send_sensing_measurement_request(uint32_t exchange_id) override;
@@ -107,6 +107,7 @@ public:
 
 private:
     bool m_supported;
+    bool m_emit_measurements;
     em_sensing_event_callback_t m_callback;
 };
 

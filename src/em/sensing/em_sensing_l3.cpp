@@ -48,7 +48,8 @@ bool em_sensing_l3_t::decode_measurement(const uint8_t *payload, size_t payload_
         return false;
     }
     const auto *common = reinterpret_cast<const em_layer3_path_payload_hdr_t *>(payload);
-    if (ntohs(common->service_name) != em_layer3_service_sensing ||
+    if (ntohs(common->version) != 1U ||
+        ntohs(common->service_name) != em_layer3_service_sensing ||
         ntohs(common->service_header_len) != layer3_header_size + sensing_header_size) {
         return false;
     }

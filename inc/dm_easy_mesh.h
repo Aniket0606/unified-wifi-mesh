@@ -105,6 +105,9 @@ public:
 	dm_layer3_path_t m_layer3_path[EM_MAX_SERVICE];
 	unsigned int m_num_sensing_exchanges = 0U;
 	dm_sensing_exchange_t m_sensing_exchange[EM_MAX_CMD];
+	mac_address_t m_trigger_probe_agent_sta{};
+	unsigned int m_num_trigger_probe_bssids = 0U;
+	mac_address_t m_trigger_probe_bssid[EM_MAX_BSSS]{};
 	dm_sensing_cap_list_t m_sensing_cap_list;
 	dm_agent_sta_iface_list_t m_agent_sta_iface_list;
 	dm_layer3_path_list_t m_layer3_path_list;

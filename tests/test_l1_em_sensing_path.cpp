@@ -23,6 +23,7 @@ TEST(em_sensing_path, creates_removes_and_limits_paths)
     request.destination_address[15] = 1U;
     ASSERT_TRUE(manager.add_path(request, result));
     EXPECT_TRUE(result.active);
+    EXPECT_NE(result.source_port, 0U);
     EXPECT_EQ(manager.size(), 1U);
     ASSERT_TRUE(manager.remove_path(request, result));
     EXPECT_FALSE(result.active);

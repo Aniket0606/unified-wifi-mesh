@@ -467,12 +467,51 @@ int em_cmd_cli_t::execute(char *result)
             break;
 
         case em_cmd_type_sensing_capabilities:
+            bevt->type = em_bus_event_type_sensing_capabilities;
+            info = &bevt->u.subdoc;
+            snprintf(info->name, sizeof(info->name), "%s", "SensingCapabilities");
+            bevt->data_len = 0;
+            break;
+
         case em_cmd_type_sensing_agent_sta:
+            bevt->type = em_bus_event_type_sensing_agent_sta;
+            info = &bevt->u.subdoc;
+            snprintf(info->name, sizeof(info->name), "%s", "AgentSTAInterface");
+            bevt->data_len = load_params_file(param->u.args.fixed_args, info->buff);
+            if (bevt->data_len < 0) {
+                return -1;
+            }
+            break;
+
         case em_cmd_type_sensing_layer3_path:
+            bevt->type = em_bus_event_type_sensing_layer3_path;
+            info = &bevt->u.subdoc;
+            snprintf(info->name, sizeof(info->name), "%s", "SensingLayer3Path");
+            bevt->data_len = load_params_file(param->u.args.fixed_args, info->buff);
+            if (bevt->data_len < 0) {
+                return -1;
+            }
+            break;
+
         case em_cmd_type_sensing_exchange:
+            bevt->type = em_bus_event_type_sensing_exchange;
+            info = &bevt->u.subdoc;
+            snprintf(info->name, sizeof(info->name), "%s", "SensingExchange");
+            bevt->data_len = load_params_file(param->u.args.fixed_args, info->buff);
+            if (bevt->data_len < 0) {
+                return -1;
+            }
+            break;
+
         case em_cmd_type_sensing_probe:
-            fprintf(stderr, "Sensing CLI command is registered but its orchestration handler is not available yet\n");
-            return -1;
+            bevt->type = em_bus_event_type_sensing_probe;
+            info = &bevt->u.subdoc;
+            snprintf(info->name, sizeof(info->name), "%s", "SensingProbe");
+            bevt->data_len = load_params_file(param->u.args.fixed_args, info->buff);
+            if (bevt->data_len < 0) {
+                return -1;
+            }
+            break;
 
         default:
             break;

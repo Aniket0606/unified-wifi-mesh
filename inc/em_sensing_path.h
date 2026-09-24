@@ -18,6 +18,7 @@ public:
 
     bool add_path(const em_layer3_path_setup_req_t &request, dm_layer3_path_info_t &result);
     bool remove_path(const em_layer3_path_setup_req_t &request, dm_layer3_path_info_t &result);
+    bool get_path(uint16_t service_name, dm_layer3_path_info_t &result) const;
     bool send_measurement(const dm_layer3_path_info_t &path,
         const em_sensing_measurement_input_t &measurement);
     void close_all();

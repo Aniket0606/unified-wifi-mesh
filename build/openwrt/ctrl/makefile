@@ -37,6 +37,7 @@ INCLUDEDIRS = \
 	-I$(ONEWIFI_HOME)/source/platform/linux \
 	-I$(ONEWIFI_HOME)/source/platform/common \
 	-I$(ONEWIFI_HOME)/source/platform/linux/he_bus/inc \
+	-I$(ONEWIFI_HOME)/source/utils/wifi_csi_consumer \
 	-I$(ONEWIFI_HOME)/source/ccsp \
 	-I$(STAGING_DIR)/usr/include \
 	-I$(STAGING_DIR)/usr/include/mysql \
@@ -51,7 +52,7 @@ else
 CFLAGS += -DPLATFORM_OSX
 endif
 
-CXXFLAGS += $(INCLUDEDIRS) -g -DUNIT_TEST -Wall -Wextra -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-aliasing -fno-common -Wctor-dtor-privacy -Wold-style-cast -Woverloaded-virtual -Wsign-promo -Wstrict-null-sentinel -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie -ftrapv -Wformat=2 -Wformat-security -Wuninitialized -Winit-self -Wsign-conversion -Wno-unused-parameter -std=c++17 #-Wconversion -Werror -O2 -Weffc++
+CXXFLAGS += $(INCLUDEDIRS) -g -DEM_SENSING_ONEWIFI_CSI -DUNIT_TEST -Wall -Wextra -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-aliasing -fno-common -Wctor-dtor-privacy -Wold-style-cast -Woverloaded-virtual -Wsign-promo -Wstrict-null-sentinel -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie -ftrapv -Wformat=2 -Wformat-security -Wuninitialized -Winit-self -Wsign-conversion -Wno-unused-parameter -std=c++17 #-Wconversion -Werror -O2 -Weffc++
 CFLAGS += -DOPENWRT_BUILD
 CXXFLAGS += -DOPENWRT_BUILD
 ifeq ($(WITH_SAP), 1)
@@ -89,6 +90,7 @@ LIBS += -lalsap
 endif
 
 GENERIC_SOURCES = $(ONEWIFI_HOME)/source/utils/collection.c \
+	$(ONEWIFI_HOME)/source/utils/wifi_csi_consumer/wifi_csi_consumer.c \
 	$(ONEWIFI_EM_SRC)/util_crypto/aes_siv.c \
 	$(ONEWIFI_HOME)/lib/common/util.c \
     $(ONEWIFI_HOME)/source/platform/linux/bus.c \

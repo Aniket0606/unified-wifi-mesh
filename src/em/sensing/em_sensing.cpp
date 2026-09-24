@@ -1,4 +1,7 @@
 #include "em_sensing.h"
+#ifdef EM_SENSING_ONEWIFI_CSI
+#include "em_sensing_ll_onewifi.h"
+#endif
 #include "em_sensing_tlv.h"
 
 #include <algorithm>
@@ -11,17 +14,34 @@ std::string sensing_mq_key(const mac_address_t agent_sta_mac, const mac_address_
     return std::string(reinterpret_cast<const char *>(agent_sta_mac), sizeof(mac_address_t)) +
         std::string(reinterpret_cast<const char *>(bssid), sizeof(mac_address_t));
 }
+
+std::string layer3_path_key(const dm_layer3_path_info_t &path)
+{
+    std::string key;
+    key.append(reinterpret_cast<const char *>(&path.service_name), sizeof(path.service_name));
+    key.push_back(static_cast<char>(path.transport_protocol));
+    key.append(reinterpret_cast<const char *>(path.destination_address),
+        sizeof(path.destination_address));
+    key.append(reinterpret_cast<const char *>(&path.destination_port), sizeof(path.destination_port));
+    return key;
+}
 }
 #include <utility>
 
 em_sensing_t::em_sensing_t()
-    : m_lower_layer(new em_sensing_ll_stub_t(
+    : m_lower_layer(
+#ifdef EM_SENSING_ONEWIFI_CSI
+        new em_sensing_ll_onewifi_t()
+#else
+        new em_sensing_ll_stub_t(
 #ifdef EM_SENSING_DISABLE_STUB
         false
 #else
         true
 #endif
-    )), m_peer_capabilities(), m_peer_agent_sta_interfaces(), m_path_manager(), m_session_manager(), m_exchange_manager(),
+    )
+#endif
+    ), m_peer_capabilities(), m_peer_agent_sta_interfaces(), m_path_manager(), m_session_manager(), m_exchange_manager(),
     m_send_callback(), m_path_result_callback(), m_agent_sta_report_callback(), m_local_bss_callback(),
     m_associated_sta_callback(), m_qos_null_due_times(), m_qos_null_measurements_pending(),
     m_qos_null_request_frames()
@@ -83,9 +103,9 @@ void em_sensing_t::handle_lower_layer_event(const em_sensing_measurement_event_t
     dm_sensing_exchange_info_t exchange;
     if (m_exchange_manager.get(event.exchange_id, exchange) && exchange.measurements_requested) {
         dm_layer3_path_info_t path;
-        path.service_name = em_layer3_service_sensing;
-        path.active = true;
-        (void)m_path_manager.send_measurement(path, measurement);
+        if (m_path_manager.get_path(em_layer3_service_sensing, path)) {
+            (void)m_path_manager.send_measurement(path, measurement);
+        }
     }
     (void)m_session_manager.publish_measurement(measurement);
 }
@@ -409,6 +429,23 @@ bool em_sensing_t::sensing_supported() const
     return get_sensing_capabilities(capabilities);
 }
 
+bool em_sensing_t::supports_layer3_transport(uint8_t transport_protocol) const
+{
+    em_sensing_capability_snapshot_t capabilities;
+    if (transport_protocol > em_layer3_transport_tcp_ipv4) {
+        return false;
+    }
+    uint8_t transport_flags = m_peer_capabilities.layer3_transport_flags;
+    if (transport_flags == 0U && m_peer_capabilities.radios.empty()) {
+        if (!get_sensing_capabilities(capabilities)) {
+            return false;
+        }
+        transport_flags = capabilities.layer3_transport_flags;
+    }
+    const uint8_t transport_mask = static_cast<uint8_t>(0x80U >> transport_protocol);
+    return (transport_flags & transport_mask) != 0U;
+}
+
 bool em_sensing_t::supports_data_type(const mac_address_t ruid, uint32_t data_type) const
 {
     em_sensing_capability_snapshot_t capabilities;
@@ -719,6 +756,51 @@ void em_sensing_t::process_agent_state()
 
 void em_sensing_t::process_ctrl_state()
 {
+    process_layer3_receivers();
+}
+
+void em_sensing_t::process_layer3_receivers()
+{
+    for (auto &entry : m_layer3_receivers) {
+        while (entry.second->receive_once([this](const em_sensing_measurement_input_t &measurement,
+            const std::vector<uint8_t> &data) {
+            dm_sensing_exchange_info_t exchange{};
+            if (!m_exchange_manager.get(measurement.exchange_id, exchange) ||
+                exchange.data_type != measurement.data_type) {
+                return;
+            }
+            (void)m_session_manager.publish_measurement(measurement);
+            (void)data;
+        })) {
+        }
+    }
+}
+
+bool em_sensing_t::configure_layer3_receiver(const dm_layer3_path_info_t &path)
+{
+    const bool tcp = path.transport_protocol == em_layer3_transport_tcp_ipv4 ||
+        path.transport_protocol == em_layer3_transport_tcp_ipv6;
+    if (!tcp && path.transport_protocol != em_layer3_transport_udp_ipv4 &&
+        path.transport_protocol != em_layer3_transport_udp_ipv6) {
+        return false;
+    }
+    const std::string key = layer3_path_key(path);
+    if (m_layer3_receivers.find(key) != m_layer3_receivers.end()) {
+        return true;
+    }
+    auto receiver = std::make_unique<em_sensing_receiver_t>();
+    const bool ipv6 = path.transport_protocol == em_layer3_transport_udp_ipv6 ||
+        path.transport_protocol == em_layer3_transport_tcp_ipv6;
+    if (!receiver->bind_transport(path.destination_port, ipv6, tcp, path.destination_address)) {
+        return false;
+    }
+    m_layer3_receivers[key] = std::move(receiver);
+    return true;
+}
+
+void em_sensing_t::remove_layer3_receiver(const dm_layer3_path_info_t &path)
+{
+    m_layer3_receivers.erase(layer3_path_key(path));
 }
 
 bool em_sensing_t::send_ack(unsigned char *data, unsigned int len)
@@ -763,7 +845,8 @@ bool em_sensing_t::send_layer3_path_setup(const em_raw_hdr_t &route,
     const dm_layer3_path_info_t &path, bool add_path)
 {
     if (m_send_callback == nullptr || path.destination_port == 0U ||
-        path.transport_protocol > em_layer3_transport_tcp_ipv4) {
+        path.transport_protocol > em_layer3_transport_tcp_ipv4 ||
+        (add_path && !supports_layer3_transport(path.transport_protocol))) {
         return false;
     }
     unsigned char buffer[1200] = {0};
@@ -785,6 +868,7 @@ bool em_sensing_t::send_layer3_path_setup(const em_raw_hdr_t &route,
     if (!em_encode_layer3_path_setup_req_tlv(request, encoded)) {
         return false;
     }
+    m_layer3_requested_paths[path.service_name] = path;
     auto *tlv = reinterpret_cast<em_tlv_t *>(buffer + sizeof(em_raw_hdr_t) + sizeof(em_cmdu_t));
     std::memcpy(tlv, encoded.data(), encoded.size());
     auto *eom = reinterpret_cast<em_tlv_t *>(reinterpret_cast<unsigned char *>(tlv) + encoded.size());
@@ -793,6 +877,21 @@ bool em_sensing_t::send_layer3_path_setup(const em_raw_hdr_t &route,
     const unsigned int length = static_cast<unsigned int>(sizeof(em_raw_hdr_t) + sizeof(em_cmdu_t) +
         encoded.size() + sizeof(em_tlv_t));
     return m_send_callback(buffer, length) >= 0;
+}
+
+bool em_sensing_t::start_sensing_exchange(const em_raw_hdr_t &route,
+    const dm_layer3_path_info_t &path, const em_sensing_exchange_req_t &request)
+{
+    if ((request.flags & 0x40U) == 0U || path.active) {
+        return send_sensing_exchange(route, request);
+    }
+    if (m_pending_exchange.has_value() || !prepare_layer3_receiver(path) ||
+        !send_layer3_path_setup(route, path, true)) {
+        remove_layer3_receiver(path);
+        return false;
+    }
+    m_pending_exchange = pending_exchange_t{route, path, request};
+    return true;
 }
 
 bool em_sensing_t::send_agent_sta_iface_config(const em_raw_hdr_t &route,
@@ -1119,13 +1218,14 @@ void em_sensing_t::handle_layer3_path_setup_req(unsigned char *data, unsigned in
             if (!em_decode_layer3_path_setup_req_tlv(encoded.data(), encoded.size(), request)) {
                 return;
             }
+            (void)send_ack(data, len);
             dm_layer3_path_info_t result{};
             const bool added = (request.flags & 0x80U) != 0U ?
                 m_path_manager.add_path(request, result) : m_path_manager.remove_path(request, result);
-            (void)send_ack(data, len);
             em_layer3_path_setup_rsp_t response{};
-            response.service_name = result.service_name;
+            response.service_name = request.service_name;
             response.result_code = added ? 0U : 1U;
+            std::memcpy(response.source_address, result.source_address, sizeof(response.source_address));
             response.source_port = result.source_port;
             std::vector<uint8_t> response_tlv;
             if (em_encode_layer3_path_setup_rsp_tlv(response, response_tlv)) {
@@ -1157,9 +1257,30 @@ void em_sensing_t::handle_layer3_path_setup_rsp(unsigned char *data, unsigned in
             (void)send_ack(data, len);
             dm_layer3_path_info_t path;
             path.service_name = response.service_name;
+            const auto requested = m_layer3_requested_paths.find(path.service_name);
+            if (requested != m_layer3_requested_paths.end()) {
+                path = requested->second;
+            }
+            std::memcpy(path.source_address, response.source_address, sizeof(path.source_address));
             path.source_port = response.source_port;
             path.active = response.result_code == 0U;
+            if (path.active && !configure_layer3_receiver(path)) {
+                path.active = false;
+            }
+            if (!path.active) {
+                remove_layer3_receiver(path);
+            }
             if (m_path_result_callback != nullptr) { m_path_result_callback(path); }
+            if (!path.active) {
+                m_layer3_requested_paths.erase(path.service_name);
+            }
+            if (path.active && m_pending_exchange.has_value()) {
+                const pending_exchange_t pending = *m_pending_exchange;
+                m_pending_exchange.reset();
+                (void)send_sensing_exchange(pending.route, pending.request);
+            } else if (!path.active) {
+                m_pending_exchange.reset();
+            }
             return;
         }
         remaining -= sizeof(em_tlv_t) + value_length;

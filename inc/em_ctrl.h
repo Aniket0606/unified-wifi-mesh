@@ -717,6 +717,8 @@ public:
 	 * @note Input property ownership remains with the caller; this function does not free them.
 	 */
 	static bus_error_t cmd_unassocstalinkmetricsquery (const char *method_name, const bus_data_prop_t *input_params, bus_data_prop_t **output_params, void *async_handle);
+	static bus_error_t cmd_sensing_exchange (const char *method_name, const bus_data_prop_t *input_params, bus_data_prop_t **output_params, void *async_handle);
+	void handle_sensing_cli_event(em_bus_event_t *evt);
 
 	/**!
 	 * @brief Handles the bus SteerWiFiBackhaul method request.

@@ -476,6 +476,31 @@ void em_cmd_t::init()
             m_svc = em_service_type_ctrl;
             break;
 
+        case em_cmd_type_sensing_capabilities:
+            snprintf(m_name, sizeof(m_name), "%s", "sensing_capabilities");
+            m_svc = em_service_type_ctrl;
+            break;
+
+        case em_cmd_type_sensing_agent_sta:
+            snprintf(m_name, sizeof(m_name), "%s", "sensing_agent_sta");
+            m_svc = em_service_type_ctrl;
+            break;
+
+        case em_cmd_type_sensing_layer3_path:
+            snprintf(m_name, sizeof(m_name), "%s", "sensing_layer3_path");
+            m_svc = em_service_type_ctrl;
+            break;
+
+        case em_cmd_type_sensing_exchange:
+            snprintf(m_name, sizeof(m_name), "%s", "sensing_exchange");
+            m_svc = em_service_type_ctrl;
+            break;
+
+        case em_cmd_type_sensing_probe:
+            snprintf(m_name, sizeof(m_name), "%s", "sensing_probe");
+            m_svc = em_service_type_ctrl;
+            break;
+
         default:
             snprintf(m_name, sizeof(m_name), "%s", "unknown");
             m_svc = em_service_type_none;
@@ -529,6 +554,11 @@ const char *em_cmd_t::get_bus_event_type_str(em_bus_event_type_t type)
 	BUS_EVENT_TYPE_2S(em_bus_event_type_unassoc_sta_link_metrics_query)
 	BUS_EVENT_TYPE_2S(em_bus_event_type_unassoc_sta_result)
 	BUS_EVENT_TYPE_2S(em_bus_event_type_failed_conn)
+    BUS_EVENT_TYPE_2S(em_bus_event_type_sensing_capabilities)
+    BUS_EVENT_TYPE_2S(em_bus_event_type_sensing_agent_sta)
+    BUS_EVENT_TYPE_2S(em_bus_event_type_sensing_layer3_path)
+    BUS_EVENT_TYPE_2S(em_bus_event_type_sensing_exchange)
+    BUS_EVENT_TYPE_2S(em_bus_event_type_sensing_probe)
        
         default:
            break;
@@ -666,6 +696,11 @@ const char *em_cmd_t::get_cmd_type_str(em_cmd_type_t type)
         CMD_TYPE_2S(em_cmd_type_get_link_quality_report)
         CMD_TYPE_2S(em_cmd_type_unassoc_sta_query)
 	CMD_TYPE_2S(em_cmd_type_unassoc_sta_result)
+    CMD_TYPE_2S(em_cmd_type_sensing_capabilities)
+    CMD_TYPE_2S(em_cmd_type_sensing_agent_sta)
+    CMD_TYPE_2S(em_cmd_type_sensing_layer3_path)
+    CMD_TYPE_2S(em_cmd_type_sensing_exchange)
+    CMD_TYPE_2S(em_cmd_type_sensing_probe)
 
         default:
            break;
@@ -820,6 +855,22 @@ em_cmd_type_t em_cmd_t::bus_2_cmd_type(em_bus_event_type_t etype)
             type = em_cmd_type_unassoc_sta_result;
             break;
 
+        case em_bus_event_type_sensing_capabilities:
+            type = em_cmd_type_sensing_capabilities;
+            break;
+        case em_bus_event_type_sensing_agent_sta:
+            type = em_cmd_type_sensing_agent_sta;
+            break;
+        case em_bus_event_type_sensing_layer3_path:
+            type = em_cmd_type_sensing_layer3_path;
+            break;
+        case em_bus_event_type_sensing_exchange:
+            type = em_cmd_type_sensing_exchange;
+            break;
+        case em_bus_event_type_sensing_probe:
+            type = em_cmd_type_sensing_probe;
+            break;
+
         case em_bus_event_type_channel_select:
             type = em_cmd_type_set_channel;
             break;
@@ -883,6 +934,22 @@ em_bus_event_type_t em_cmd_t::cmd_2_bus_event_type(em_cmd_type_t ctype)
         case em_cmd_type_unassoc_sta_result:
             type = em_bus_event_type_unassoc_sta_result;
             break;
+
+    case em_cmd_type_sensing_capabilities:
+        type = em_bus_event_type_sensing_capabilities;
+        break;
+    case em_cmd_type_sensing_agent_sta:
+        type = em_bus_event_type_sensing_agent_sta;
+        break;
+    case em_cmd_type_sensing_layer3_path:
+        type = em_bus_event_type_sensing_layer3_path;
+        break;
+    case em_cmd_type_sensing_exchange:
+        type = em_bus_event_type_sensing_exchange;
+        break;
+    case em_cmd_type_sensing_probe:
+        type = em_bus_event_type_sensing_probe;
+        break;
 
         default:
             break;

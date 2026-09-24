@@ -35,6 +35,7 @@
 #define DEVICE_WIFI_DATAELEMENTS_NETWORK_NODE_SYNC          "Device.WiFi.DataElements.Network.NodeSynchronize"
 #define DEVICE_WIFI_DATAELEMENTS_NETWORK_NODE_CFG_POLICY    "Device.WiFi.DataElements.Network.NodeConfigurePolicy"
 #define DEVICE_WIFI_DATAELEMENTS_NETWORK_NODE_LINKSTATS_ALARM    "Device.WiFi.DataElements.Network.NodeLinkStatsAlarm"
+#define DEVICE_WIFI_DATAELEMENTS_NETWORK_SENSING_EXCHANGE    "Device.WiFi.DataElements.Network.SensingExchange"
 #define DEVICE_WIFI_DATAELEMENTS_FAILED_CONNECTION               "Device.WiFi.DataElements.FailedConnectionEvent.FailedConnection!"
 
 #define LIST_OF_DEFINITION_NAME "List_Of_Def"
@@ -630,6 +631,9 @@ public:
      * @note Ownership of input and output buffers remains with the caller.
      */
     static bus_error_t unassocstalinkmetricsquery_handler(const char *method_name,
+        bus_data_prop_t *input_data, bus_data_prop_t *output_data, void *async_handle);
+
+    static bus_error_t sensing_exchange_handler(const char *method_name,
         bus_data_prop_t *input_data, bus_data_prop_t *output_data, void *async_handle);
 
     /**!

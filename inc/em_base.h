@@ -3284,6 +3284,11 @@ typedef enum {
     em_bus_event_type_unassoc_sta_link_metrics_query,
     em_bus_event_type_unassoc_sta_result,
     em_bus_event_type_failed_conn,
+    em_bus_event_type_sensing_capabilities,
+    em_bus_event_type_sensing_agent_sta,
+    em_bus_event_type_sensing_layer3_path,
+    em_bus_event_type_sensing_exchange,
+    em_bus_event_type_sensing_probe,
 
     em_bus_event_type_max
 } em_bus_event_type_t;

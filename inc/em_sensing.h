@@ -10,11 +10,13 @@
 #include "em_sensing_ll.h"
 #include "em_sensing_tlv.h"
 #include "em_sensing_path.h"
+#include "em_sensing_receiver.h"
 #include "em_sensing_session.h"
 #include "em_sensing_exchange.h"
 #include <array>
 #include <chrono>
 #include <functional>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -54,6 +56,12 @@ public:
     }
     bool send_layer3_path_setup(const em_raw_hdr_t &route, const dm_layer3_path_info_t &path,
         bool add_path);
+    bool prepare_layer3_receiver(const dm_layer3_path_info_t &path)
+    {
+        return configure_layer3_receiver(path);
+    }
+    bool start_sensing_exchange(const em_raw_hdr_t &route, const dm_layer3_path_info_t &path,
+        const em_sensing_exchange_req_t &request);
     bool send_agent_sta_iface_config(const em_raw_hdr_t &route, const mac_address_t ruid,
         uint8_t count);
     bool send_sensing_exchange(const em_raw_hdr_t &route, const em_sensing_exchange_req_t &request);
@@ -70,6 +78,7 @@ public:
     bool add_session_exchange(const std::string &socket_path, uint32_t exchange_id) { return m_session_manager.add_exchange(socket_path, exchange_id); }
     bool remove_session_exchange(const std::string &socket_path, uint32_t exchange_id) { return m_session_manager.remove_exchange(socket_path, exchange_id); }
     bool sensing_mq(const mac_address_t agent_sta_mac, const mac_address_t bssid);
+    bool supports_layer3_transport(uint8_t transport_protocol) const;
     bool supports_data_type(const mac_address_t ruid, uint32_t data_type) const;
     bool supports_exchange_type(const mac_address_t ruid, uint8_t exchange_type) const;
     bool has_exchange(uint32_t exchange_id) const { return m_exchange_manager.contains(exchange_id); }
@@ -131,6 +140,14 @@ private:
     };
     std::unordered_map<std::string, sensing_mq_pending_t> m_sensing_mq_pending;
     std::unordered_map<std::string, uint8_t> m_sensing_mq_results;
+    std::unordered_map<std::string, std::unique_ptr<em_sensing_receiver_t>> m_layer3_receivers;
+    std::unordered_map<uint16_t, dm_layer3_path_info_t> m_layer3_requested_paths;
+    struct pending_exchange_t {
+        em_raw_hdr_t route{};
+        dm_layer3_path_info_t path{};
+        em_sensing_exchange_req_t request{};
+    };
+    std::optional<pending_exchange_t> m_pending_exchange;
     uint16_t m_last_trigger_probe_status = 0U;
     std::vector<std::array<uint8_t, 6>> m_last_trigger_probe_failures;
     std::vector<uint8_t> m_last_tunneled_probe_response;
@@ -151,6 +168,9 @@ private:
     void arm_qos_null_timer(uint32_t exchange_id, uint16_t period);
     void stop_qos_null_timer(uint32_t exchange_id);
     void complete_qos_null_phase(uint32_t exchange_id);
+    void process_layer3_receivers();
+    bool configure_layer3_receiver(const dm_layer3_path_info_t &path);
+    void remove_layer3_receiver(const dm_layer3_path_info_t &path);
     bool send_message(unsigned char *request, unsigned int request_len, em_msg_type_t message_type,
         em_tlv_type_t tlv_type, const unsigned char *value, unsigned short value_length);
 };

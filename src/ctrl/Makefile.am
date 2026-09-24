@@ -30,9 +30,10 @@ onewifi_em_ctrl_CPPFLAGS = \
     -I$(top_srcdir)/inc \
     -I$(top_srcdir)/src/utils \
     -I$(top_srcdir)/src/util \
-    -I$(top_srcdir)/src/util_crypto
+    -I$(top_srcdir)/src/util_crypto \
+    -I$(top_srcdir)/../OneWifi/source/utils/wifi_csi_consumer
 
-onewifi_em_ctrl_CXXFLAGS = $(INCLUDEDIRS) -g -Wall -Wextra -pedantic -Wpedantic -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-aliasing -fno-common -Wctor-dtor-privacy -Wold-style-cast -Woverloaded-virtual -Wsign-promo -Wstrict-null-sentinel -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie -ftrapv -Wformat=2 -Wformat-security -Wuninitialized -Winit-self -Wsign-conversion -Weffc++ -Wno-unused-parameter -std=c++17 -fno-omit-frame-pointer #-Wconversion -Werror -O2
+onewifi_em_ctrl_CXXFLAGS = $(INCLUDEDIRS) -DEM_SENSING_ONEWIFI_CSI -g -Wall -Wextra -pedantic -Wpedantic -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-aliasing -fno-common -Wctor-dtor-privacy -Wold-style-cast -Woverloaded-virtual -Wsign-promo -Wstrict-null-sentinel -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie -ftrapv -Wformat=2 -Wformat-security -Wuninitialized -Winit-self -Wsign-conversion -Weffc++ -Wno-unused-parameter -std=c++17 -fno-omit-frame-pointer #-Wconversion -Werror -O2
 if EM_ASAN_CTRL
 onewifi_em_ctrl_CXXFLAGS += -fsanitize=address -fsanitize=undefined
 endif
@@ -63,6 +64,8 @@ onewifi_em_ctrl_SOURCES =  \
     $(top_srcdir)/src/em/sensing/em_sensing.cpp \
     $(top_srcdir)/src/em/sensing/em_sensing_tlv.cpp \
     $(top_srcdir)/src/em/sensing/em_sensing_ll_stub.cpp \
+    $(top_srcdir)/src/em/sensing/em_sensing_ll_onewifi.cpp \
+    $(top_srcdir)/../OneWifi/source/utils/wifi_csi_consumer/wifi_csi_consumer.c \
     $(top_srcdir)/src/em/sensing/em_sensing_l3.cpp \
     $(top_srcdir)/src/em/sensing/em_sensing_path.cpp \
     $(top_srcdir)/src/em/sensing/em_sensing_session.cpp \

@@ -271,13 +271,60 @@ void em_t::orch_execute(em_cmd_t *pcmd)
                 em_raw_hdr_t route{};
                 std::memcpy(route.dst, get_peer_mac(), sizeof(mac_address_t));
                 std::memcpy(route.src, get_al_interface_mac(), sizeof(mac_address_t));
-                (void)send_layer3_path_setup(route, pcmd->m_data_model.m_layer3_path[0].m_info, true);
+                const dm_layer3_path_info_t &path = pcmd->m_data_model.m_layer3_path[0].m_info;
+                if (prepare_layer3_receiver(path)) {
+                    (void)send_layer3_path_setup(route, path, true);
+                }
             }
             break;
 
         case em_cmd_type_sensing_exchange:
+            if (m_service_type == em_service_type_ctrl &&
+                pcmd->m_data_model.m_num_sensing_exchanges > 0U) {
+                em_raw_hdr_t route{};
+                std::memcpy(route.dst, get_peer_mac(), sizeof(mac_address_t));
+                std::memcpy(route.src, get_al_interface_mac(), sizeof(mac_address_t));
+                em_sensing_exchange_req_t request{};
+                const auto &exchange = pcmd->m_data_model.m_sensing_exchange[0].m_info;
+                request.exchange_id = exchange.exchange_id;
+                request.exchange_type = exchange.exchange_type;
+                request.flags = static_cast<uint8_t>((exchange.add_exchange ? 0x80U : 0U) |
+                    (exchange.measurements_requested ? 0x40U : 0U));
+                request.period = exchange.period;
+                request.bandwidth = exchange.bandwidth;
+                request.n_tx = exchange.n_tx;
+                request.n_rx = exchange.n_rx;
+                request.data_type = exchange.data_type;
+                std::memcpy(request.transmitter, exchange.transmitter, sizeof(mac_address_t));
+                std::memcpy(request.receiver, exchange.receiver, sizeof(mac_address_t));
+                const dm_layer3_path_info_t path = pcmd->m_data_model.m_layer3_path[0].m_info;
+                (void)start_sensing_exchange(route, path, request);
+            }
+            m_sm.set_state((m_service_type == em_service_type_agent) ?
+                em_state_agent_sensing_exchange_pending : em_state_ctrl_sensing_exchange_pending);
+            break;
         case em_cmd_type_sensing_mq:
+            m_sm.set_state((m_service_type == em_service_type_agent) ?
+                em_state_agent_sensing_exchange_pending : em_state_ctrl_sensing_exchange_pending);
+            break;
+
         case em_cmd_type_trigger_probe:
+            if (m_service_type == em_service_type_ctrl) {
+                em_raw_hdr_t route{};
+                std::memcpy(route.dst, get_peer_mac(), sizeof(mac_address_t));
+                std::memcpy(route.src, get_al_interface_mac(), sizeof(mac_address_t));
+                em_trigger_probe_req_t request{};
+                const auto &probe_dm = pcmd->m_data_model;
+                std::memcpy(request.agent_sta_mac_addr, probe_dm.m_trigger_probe_agent_sta, sizeof(mac_address_t));
+                request.num_bssid = static_cast<unsigned char>(probe_dm.m_num_trigger_probe_bssids);
+                std::vector<std::array<uint8_t, 6>> bssids;
+                for (unsigned int index = 0U; index < probe_dm.m_num_trigger_probe_bssids; ++index) {
+                    std::array<uint8_t, 6> bssid{};
+                    std::memcpy(bssid.data(), probe_dm.m_trigger_probe_bssid[index], bssid.size());
+                    bssids.push_back(bssid);
+                }
+                (void)send_trigger_probe(route, request, bssids);
+            }
             m_sm.set_state((m_service_type == em_service_type_agent) ?
                 em_state_agent_sensing_exchange_pending : em_state_ctrl_sensing_exchange_pending);
             break;
@@ -634,8 +681,10 @@ void em_t::handle_ctrl_state()
 void em_t::proto_timeout()
 {
     if (m_service_type == em_service_type_agent) {
+        em_sensing_t::process_agent_state();
         handle_agent_state();
     } else if (m_service_type == em_service_type_ctrl) {
+        em_sensing_t::process_ctrl_state();
         handle_ctrl_state();
     }
 }
@@ -3160,9 +3209,20 @@ em_t::em_t(em_interface_t *ruid, em_freq_band_t band, dm_easy_mesh_t *dm, em_mgr
         return send_frame(buffer, length);
     });
     set_path_result_callback([dm](const dm_layer3_path_info_t &path) {
-        if (dm->m_num_layer3_paths == 0U) { return; }
-        dm->m_layer3_path[0].m_info.source_port = path.source_port;
-        dm->m_layer3_path[0].m_info.active = path.active;
+        for (unsigned int index = 0U; index < dm->m_num_layer3_paths; ++index) {
+            dm_layer3_path_info_t &stored = dm->m_layer3_path[index].m_info;
+            if (stored.service_name != path.service_name ||
+                stored.destination_port != path.destination_port ||
+                std::memcmp(stored.destination_address, path.destination_address,
+                    sizeof(stored.destination_address)) != 0) {
+                continue;
+            }
+            stored.source_port = path.source_port;
+            std::memcpy(stored.source_address, path.source_address,
+                sizeof(stored.source_address));
+            stored.active = path.active;
+            break;
+        }
     });
     set_local_bss_callback([dm](const mac_address_t bssid) {
         for (unsigned int index = 0U; index < dm->get_num_bss(); ++index) {

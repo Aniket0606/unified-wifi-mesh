@@ -35,6 +35,7 @@ INCLUDEDIRS = \
     	-I$(ONEWIFI_HOME)/source/platform/linux \
     	-I$(ONEWIFI_HOME)/source/platform/common \
     	-I$(ONEWIFI_HOME)/source/platform/linux/he_bus/inc \
+		-I$(ONEWIFI_HOME)/source/utils/wifi_csi_consumer \
         -I$(ONEWIFI_EM_HOME)/src/util_crypto \
         -I$(ONEWIFI_HOME)/source/ccsp \
 	-I$(STAGING_DIR)/usr/include
@@ -51,7 +52,7 @@ endif
 
 $(info The value of VARIABLE is $(ONEWIFI_HAL_INTF_HOME))
 
-CXXFLAGS += $(INCLUDEDIRS) -g -DEASY_MESH_NODE -DEM_APP -Wall -Wextra -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-aliasing -fno-common -Wctor-dtor-privacy -Wold-style-cast -Woverloaded-virtual -Wsign-promo -Wstrict-null-sentinel -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie -ftrapv -Wformat=2 -Wformat-security -Wuninitialized -Winit-self -Wsign-conversion -Wno-unused-parameter -std=c++17 -fpermissive #-Wconversion -Werror -O2 -Weffc++
+CXXFLAGS += $(INCLUDEDIRS) -g -DEASY_MESH_NODE -DEM_APP -DEM_SENSING_ONEWIFI_CSI -Wall -Wextra -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-aliasing -fno-common -Wctor-dtor-privacy -Wold-style-cast -Woverloaded-virtual -Wsign-promo -Wstrict-null-sentinel -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie -ftrapv -Wformat=2 -Wformat-security -Wuninitialized -Winit-self -Wsign-conversion -Wno-unused-parameter -std=c++17 -fpermissive #-Wconversion -Werror -O2 -Weffc++
 
 ifeq ($(WITH_SAP), 1)
 CXXFLAGS += -DAL_SAP
@@ -86,6 +87,7 @@ LIBDIRS += -L$(INSTALLDIR)/lib/platform/darwin
 endif
 
 GENERIC_SOURCES = $(ONEWIFI_HOME)/source/utils/collection.c \
+	$(ONEWIFI_HOME)/source/utils/wifi_csi_consumer/wifi_csi_consumer.c \
     $(ONEWIFI_EM_SRC)/util_crypto/aes_siv.c \
     $(ONEWIFI_HOME)/lib/common/util.c \
     $(ONEWIFI_HOME)/source/platform/linux/bus.c \

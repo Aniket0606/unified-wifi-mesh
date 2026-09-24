@@ -43,6 +43,10 @@
 #include "em_msg.h"
 #include "em_ctrl.h"
 #include "em_cmd_ctrl.h"
+#include "em_cmd_agent_sta_iface_config.h"
+#include "em_cmd_layer3_path_setup.h"
+#include "em_cmd_sensing_exchange.h"
+#include "em_cmd_trigger_probe.h"
 #include "dm_easy_mesh.h"
 #include "em_orch_ctrl.h"
 #include "util.h"
@@ -51,6 +55,309 @@
 #ifdef AL_SAP
 #include "al_service_access_point.h"
 #endif
+
+bus_error_t em_ctrl_t::cmd_sensing_exchange(const char *method_name,
+    const bus_data_prop_t *input_params, bus_data_prop_t **output_params, void *async_handle)
+{
+    (void)method_name;
+    (void)async_handle;
+    if (output_params != nullptr) {
+        *output_params = tr_181_t::tr181_set_status_output_prop("Failure");
+    }
+    if (input_params == nullptr) {
+        return bus_error_invalid_input;
+    }
+    em_ctrl_t *controller = get_em_ctrl_instance();
+    if (controller == nullptr) {
+        return bus_error_general;
+    }
+    dm_easy_mesh_t *dm = controller->get_dm_ctrl()->get_first_dm();
+    if (dm == nullptr || dm->get_em() == nullptr) {
+        return bus_error_general;
+    }
+    auto get_string = [input_params](const char *name) {
+        for (const bus_data_prop_t *prop = input_params; prop != nullptr; prop = prop->next_data) {
+            if (std::strcmp(prop->name, name) == 0 && prop->value.data_type == bus_data_type_string) {
+                return std::string(reinterpret_cast<const char *>(prop->value.raw_data));
+            }
+        }
+        return std::string();
+    };
+    auto get_int = [input_params](const char *name, int32_t fallback) {
+        for (const bus_data_prop_t *prop = input_params; prop != nullptr; prop = prop->next_data) {
+            if (std::strcmp(prop->name, name) == 0) {
+                int32_t value = fallback;
+                if (tr_181_t::tr181_get_prop_int(prop, &value)) {
+                    return value;
+                }
+            }
+        }
+        return fallback;
+    };
+    em_cmd_params_t params{};
+    em_cmd_sensing_exchange_t *command = new em_cmd_sensing_exchange_t(params, *dm);
+    dm_easy_mesh_t *command_dm = command->get_data_model();
+    if (command_dm == nullptr) {
+        delete command;
+        return bus_error_general;
+    }
+    dm_sensing_exchange_info_t &exchange = command_dm->m_sensing_exchange[0].m_info;
+    exchange.exchange_id = command_dm->allocate_sensing_exchange_id();
+    exchange.exchange_type = static_cast<uint8_t>(get_int("ExchangeType", 0));
+    exchange.add_exchange = true;
+    exchange.measurements_requested = get_int("MeasurementsRequested", 0) != 0;
+    exchange.period = static_cast<uint16_t>(get_int("Period", 0));
+    exchange.bandwidth = static_cast<uint16_t>(get_int("Bandwidth", 20));
+    exchange.n_tx = static_cast<uint8_t>(get_int("SensingNTx", 0));
+    exchange.n_rx = static_cast<uint8_t>(get_int("SensingNRx", 0));
+    exchange.data_type = static_cast<uint32_t>(get_int("DataType", EM_SENSING_DATA_TYPE_IEEE_CSI));
+    const std::string transmitter = get_string("Transmitter");
+    const std::string receiver = get_string("Receiver");
+    if (exchange.exchange_id == 0U || transmitter.empty() || receiver.empty()) {
+        delete command;
+        return bus_error_invalid_input;
+    }
+    dm_easy_mesh_t::string_to_macbytes(const_cast<char *>(transmitter.c_str()), exchange.transmitter);
+    dm_easy_mesh_t::string_to_macbytes(const_cast<char *>(receiver.c_str()), exchange.receiver);
+    command_dm->m_num_sensing_exchanges = 1U;
+    if (exchange.measurements_requested) {
+        command_dm->m_num_layer3_paths = 1U;
+        dm_layer3_path_info_t &path = command_dm->m_layer3_path[0].m_info;
+        path.service_name = em_layer3_service_sensing;
+        path.transport_protocol = static_cast<uint8_t>(get_int("TransportProtocol", em_layer3_transport_udp_ipv6));
+        path.destination_port = static_cast<uint16_t>(get_int("DestinationPort", 0));
+        const std::string destination = get_string("DestinationAddress");
+        bool valid_destination = destination.empty() == false &&
+            inet_pton(AF_INET6, destination.c_str(), path.destination_address) == 1;
+        if (!valid_destination && !destination.empty()) {
+            uint8_t ipv4_address[4]{};
+            valid_destination = inet_pton(AF_INET, destination.c_str(), ipv4_address) == 1;
+            if (valid_destination) {
+                std::memset(path.destination_address, 0, sizeof(path.destination_address));
+                std::memcpy(path.destination_address + 12U, ipv4_address, sizeof(ipv4_address));
+            }
+        }
+        if (path.destination_port == 0U || !valid_destination) {
+            delete command;
+            return bus_error_invalid_input;
+        }
+    }
+    em_cmd_t *commands[] = {command};
+    if (controller->get_orch()->submit_commands(commands, 1U) != 1U) {
+        delete command;
+        return bus_error_failed;
+    }
+    if (output_params != nullptr) {
+        *output_params = tr_181_t::tr181_set_status_output_prop("Success");
+    }
+    return bus_error_success;
+}
+
+static cJSON *parse_sensing_cli_request(em_bus_event_t *evt)
+{
+    if (evt == nullptr || evt->data_len == 0U) {
+        return nullptr;
+    }
+    return cJSON_Parse(evt->u.subdoc.buff);
+}
+
+static bool sensing_cli_mac_string(const char *value, mac_address_t mac)
+{
+    unsigned int octets[6]{};
+    if (value == nullptr || std::sscanf(value, "%2x:%2x:%2x:%2x:%2x:%2x",
+        &octets[0], &octets[1], &octets[2], &octets[3], &octets[4], &octets[5]) != 6) {
+        return false;
+    }
+    for (unsigned int index = 0U; index < 6U; ++index) {
+        mac[index] = static_cast<unsigned char>(octets[index]);
+    }
+    return true;
+}
+
+static bool sensing_cli_mac(const cJSON *obj, const char *name, mac_address_t mac)
+{
+    const cJSON *item = cJSON_GetObjectItem(obj, name);
+    return item != nullptr && cJSON_IsString(item) && sensing_cli_mac_string(item->valuestring, mac);
+}
+
+static int sensing_cli_number(const cJSON *obj, const char *name, int fallback)
+{
+    const cJSON *item = cJSON_GetObjectItem(obj, name);
+    return item != nullptr && cJSON_IsNumber(item) ? item->valueint : fallback;
+}
+
+static bool sensing_cli_address(const cJSON *obj, const char *name, uint8_t address[16])
+{
+    const cJSON *item = cJSON_GetObjectItem(obj, name);
+    if (item == nullptr || !cJSON_IsString(item)) {
+        return false;
+    }
+    if (inet_pton(AF_INET6, item->valuestring, address) == 1) {
+        return true;
+    }
+    uint8_t ipv4[4]{};
+    if (inet_pton(AF_INET, item->valuestring, ipv4) != 1) {
+        return false;
+    }
+    std::memset(address, 0, 16U);
+    std::memcpy(address + 12U, ipv4, sizeof(ipv4));
+    return true;
+}
+
+void em_ctrl_t::handle_sensing_cli_event(em_bus_event_t *evt)
+{
+    if (evt == nullptr) {
+        m_ctrl_cmd->send_result(em_cmd_out_status_invalid_input);
+        return;
+    }
+    dm_easy_mesh_t *dm = m_data_model.get_first_dm();
+    if (dm == nullptr) {
+        m_ctrl_cmd->send_result(em_cmd_out_status_not_ready);
+        return;
+    }
+
+    if (evt->type == em_bus_event_type_sensing_capabilities) {
+        cJSON *root = cJSON_CreateObject();
+        cJSON *caps = cJSON_AddArrayToObject(root, "SensingCapabilities");
+        for (unsigned int index = 0U; index < dm->m_num_sensing_caps; ++index) {
+            cJSON *cap = cJSON_CreateObject();
+            dm->m_sensing_cap[index].encode(cap);
+            cJSON_AddItemToArray(caps, cap);
+        }
+        char *encoded = cJSON_PrintUnformatted(root);
+        cJSON_Delete(root);
+        if (encoded == nullptr) {
+            m_ctrl_cmd->send_result(em_cmd_out_status_not_ready);
+            return;
+        }
+        std::snprintf(evt->u.subdoc.buff, sizeof(evt->u.subdoc.buff), "%s", encoded);
+        evt->data_len = static_cast<unsigned int>(std::strlen(evt->u.subdoc.buff)) + 1U;
+        cJSON_free(encoded);
+        m_ctrl_cmd->copy_bus_event(evt);
+        m_ctrl_cmd->send_result(em_cmd_out_status_success);
+        return;
+    }
+
+    cJSON *root = parse_sensing_cli_request(evt);
+    if (root == nullptr) {
+        m_ctrl_cmd->send_result(em_cmd_out_status_invalid_input);
+        return;
+    }
+
+    em_cmd_params_t params = evt->params;
+    em_cmd_t *command = nullptr;
+    dm_easy_mesh_t *command_dm = nullptr;
+    bool valid = false;
+
+    switch (evt->type) {
+        case em_bus_event_type_sensing_agent_sta: {
+            auto *typed = new em_cmd_agent_sta_iface_config_t(params, *dm);
+            command = typed;
+            command_dm = typed->get_data_model();
+            valid = command_dm != nullptr && command_dm->m_num_agent_sta_ifaces < EM_MAX_RADIO_PER_AGENT &&
+                sensing_cli_mac(root, "RUID", command_dm->m_agent_sta_iface[0].m_info.ruid);
+            if (valid) {
+                command_dm->m_agent_sta_iface[0].m_info.num_sta = static_cast<uint8_t>(
+                    sensing_cli_number(root, "NumSTA", 0));
+                command_dm->m_num_agent_sta_ifaces = 1U;
+            }
+            break;
+        }
+        case em_bus_event_type_sensing_layer3_path: {
+            auto *typed = new em_cmd_layer3_path_setup_t(params, *dm);
+            command = typed;
+            command_dm = typed->get_data_model();
+            if (command_dm != nullptr) {
+                dm_layer3_path_info_t &path = command_dm->m_layer3_path[0].m_info;
+                path.service_name = static_cast<uint16_t>(sensing_cli_number(root, "ServiceName", em_layer3_service_sensing));
+                path.transport_protocol = static_cast<uint8_t>(sensing_cli_number(root, "TransportProtocol", em_layer3_transport_udp_ipv6));
+                path.destination_port = static_cast<uint16_t>(sensing_cli_number(root, "DestinationPort", 0));
+                valid = path.destination_port != 0U && sensing_cli_address(root, "DestinationAddress", path.destination_address);
+                if (valid) {
+                    command_dm->m_num_layer3_paths = 1U;
+                }
+            }
+            break;
+        }
+        case em_bus_event_type_sensing_exchange: {
+            auto *typed = new em_cmd_sensing_exchange_t(params, *dm);
+            command = typed;
+            command_dm = typed->get_data_model();
+            if (command_dm != nullptr) {
+                dm_sensing_exchange_info_t &exchange = command_dm->m_sensing_exchange[0].m_info;
+                exchange.exchange_id = command_dm->allocate_sensing_exchange_id();
+                exchange.exchange_type = static_cast<uint8_t>(sensing_cli_number(root, "ExchangeType", 0));
+                exchange.add_exchange = sensing_cli_number(root, "AddRemove", 1) != 0;
+                exchange.measurements_requested = sensing_cli_number(root, "MeasurementsRequested", 0) != 0;
+                exchange.period = static_cast<uint16_t>(sensing_cli_number(root, "Period", 0));
+                exchange.bandwidth = static_cast<uint16_t>(sensing_cli_number(root, "Bandwidth", 20));
+                exchange.n_tx = static_cast<uint8_t>(sensing_cli_number(root, "SensingNTx", 0));
+                exchange.n_rx = static_cast<uint8_t>(sensing_cli_number(root, "SensingNRx", 0));
+                exchange.data_type = static_cast<uint32_t>(sensing_cli_number(root, "DataType", EM_SENSING_DATA_TYPE_IEEE_CSI));
+                valid = exchange.exchange_id != 0U &&
+                    sensing_cli_mac(root, "Transmitter", exchange.transmitter) &&
+                    sensing_cli_mac(root, "Receiver", exchange.receiver);
+                if (valid && exchange.measurements_requested) {
+                    dm_layer3_path_info_t &path = command_dm->m_layer3_path[0].m_info;
+                    path.service_name = em_layer3_service_sensing;
+                    path.transport_protocol = static_cast<uint8_t>(sensing_cli_number(root, "TransportProtocol", em_layer3_transport_udp_ipv6));
+                    path.destination_port = static_cast<uint16_t>(sensing_cli_number(root, "DestinationPort", 0));
+                    valid = path.destination_port != 0U && sensing_cli_address(root, "DestinationAddress", path.destination_address);
+                    if (valid) {
+                        command_dm->m_num_layer3_paths = 1U;
+                    }
+                }
+                if (valid) {
+                    command_dm->m_num_sensing_exchanges = 1U;
+                }
+            }
+            break;
+        }
+        case em_bus_event_type_sensing_probe: {
+            auto *typed = new em_cmd_trigger_probe_t(params, *dm);
+            command = typed;
+            command_dm = typed->get_data_model();
+            valid = command_dm != nullptr && sensing_cli_mac(root, "AgentSTAMAC",
+                command_dm->m_trigger_probe_agent_sta);
+            const cJSON *bssids = cJSON_GetObjectItem(root, "BSSID");
+            if (valid && cJSON_IsArray(bssids)) {
+                const int count = cJSON_GetArraySize(bssids);
+                if (count > EM_MAX_BSSS) {
+                    valid = false;
+                } else {
+                    command_dm->m_num_trigger_probe_bssids = static_cast<unsigned int>(count);
+                    for (int index = 0; index < count && valid; ++index) {
+                        cJSON *item = cJSON_GetArrayItem(bssids, index);
+                        valid = item != nullptr && cJSON_IsString(item);
+                        if (valid) {
+                            valid = sensing_cli_mac_string(item->valuestring,
+                                command_dm->m_trigger_probe_bssid[index]);
+                        }
+                    }
+                }
+            } else if (valid) {
+                command_dm->m_num_trigger_probe_bssids = 0U;
+            }
+            break;
+        }
+        default:
+            break;
+    }
+    cJSON_Delete(root);
+
+    if (!valid || command == nullptr) {
+        delete command;
+        m_ctrl_cmd->send_result(em_cmd_out_status_invalid_input);
+        return;
+    }
+    em_cmd_t *commands[] = {command};
+    if (m_orch->submit_commands(commands, 1U) != 1U) {
+        delete command;
+        m_ctrl_cmd->send_result(em_cmd_out_status_not_ready);
+        return;
+    }
+    m_ctrl_cmd->send_result(em_cmd_out_status_success);
+}
 
 em_ctrl_t *em_ctrl_t::s_em_ctrl = NULL;
 em_network_topo_t *g_network_topology = NULL;
@@ -802,6 +1109,14 @@ void em_ctrl_t::handle_bus_event(em_bus_event_t *evt)
            handle_unassoc_sta_metrics_query(evt);
            break;
 
+        case em_bus_event_type_sensing_capabilities:
+        case em_bus_event_type_sensing_agent_sta:
+        case em_bus_event_type_sensing_layer3_path:
+        case em_bus_event_type_sensing_exchange:
+        case em_bus_event_type_sensing_probe:
+            handle_sensing_cli_event(evt);
+            break;
+
         default:
             break;
     }
@@ -1351,6 +1666,9 @@ void em_ctrl_t::start_complete()
             { bus_data_type_string, false, 0, 0, 0, NULL } },
         { const_cast<char*>(DEVICE_WIFI_DATAELEMENTS_NETWORK_SETSSID_CMD), bus_element_type_method,
             { NULL, NULL , NULL, NULL, NULL, tr_181_t::setssid_handler}, slow_speed, ZERO_TABLE,
+            { bus_data_type_property, false, 0, 0, 0, NULL } },
+        { const_cast<char*>(DEVICE_WIFI_DATAELEMENTS_NETWORK_SENSING_EXCHANGE), bus_element_type_method,
+            { NULL, NULL , NULL, NULL, NULL, tr_181_t::sensing_exchange_handler}, slow_speed, ZERO_TABLE,
             { bus_data_type_property, false, 0, 0, 0, NULL } },
         { const_cast<char*>(DE_DEVICE_UNASSOCSTALMQ), bus_element_type_method,
             { NULL, NULL , NULL, NULL, NULL, tr_181_t::unassocstalinkmetricsquery_handler}, slow_speed, ZERO_TABLE,
